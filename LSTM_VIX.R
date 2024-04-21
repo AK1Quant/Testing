@@ -17,20 +17,26 @@ vix_data$US_VIX <- (vix_data$US_VIX - min(vix_data$US_VIX)) / (max(vix_data$US_V
 # Prepare the data for LSTM
 n_lag <- 10  # Number of lag days to include in each sequence
 
-# Create sequences
-sequences <- vix_data %>%
-  mutate(row_number = row_number()) %>%
-  filter(row_number > n_lag) %>%
-  group_by(row_number) %>%
-  summarise(
-    input_seq = list(vix_data$US_VIX[(row_number - n_lag):row_number]),
-    target = vix_data$US_VIX[row_number + 1]
-  ) %>%
-  ungroup()
+# Create sequences and targets
+input_seqs <- list()
+targets <- c()
 
-# Convert sequences to arrays
-input_data <- array(unlist(sequences$input_seq), dim = c(nrow(sequences), n_lag, 1))
-target_data <- array(sequences$target, dim = c(nrow(sequences), 1))
+# Iterate through the data starting from index n_lag to create sequences and targets
+for (i in seq(n_lag, nrow(vix_data) - 1)) {
+    # Get the sequence from (i - n_lag) to i
+    input_seq <- vix_data$US_VIX[(i - n_lag + 1):i]
+    
+    # Get the target value (i + 1)
+    target <- vix_data$US_VIX[i + 1]
+    
+    # Append the sequence and target to the lists
+    input_seqs[[length(input_seqs) + 1]] <- input_seq
+    targets[length(targets) + 1] <- target
+}
+
+# Convert the input sequences and targets to arrays
+input_data <- array(unlist(input_seqs), dim = c(length(input_seqs), n_lag, 1))
+target_data <- array(targets, dim = c(length(targets), 1))
 
 # Split the data into training and testing sets (80-20 split)
 split_point <- floor(0.8 * nrow(sequences))
