@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
 
@@ -9,14 +8,11 @@ from tensorflow.keras.layers import LSTM, Dense
 data = pd.read_csv('path_to_your_data.csv', parse_dates=['Date'])
 data.set_index('Date', inplace=True)
 
-# Preprocess the data
-scaler = MinMaxScaler()
-scaled_data = scaler.fit_transform(data.values)
 
 # Split the data into training and testing sets
-train_size = int(len(scaled_data) * 0.8)
-train_data = scaled_data[:train_size]
-test_data = scaled_data[train_size:]
+train_size = int(len(data) * 0.8)
+train_data = data[:train_size]
+test_data = data[train_size:]
 
 # Prepare data for LSTM
 def create_sequences(data, seq_length):
@@ -25,10 +21,30 @@ def create_sequences(data, seq_length):
     for i in range(len(data) - seq_length):
         sequences.append(data[i:i + seq_length])
         targets.append(data[i + seq_length])
+    # Debug print statements
+    print(f"Created {len(sequences)} sequences and {len(targets)} targets")
+    print(f"Sample sequence: {sequences[0]}")
+    print(f"Sample target: {targets[0]}")
     return np.array(sequences), np.array(targets)
-
+    
 seq_length = 10  # Change as desired
 X_train, y_train = create_sequences(train_data, seq_length)
+X_test, y_test = create_sequences(test_data, seq_length)
+# test_data = test_data.reshape(-1, 1)
+# Check test data format and adjust if necessary
+# if isinstance(test_data, pd.DataFrame):
+#     test_data = test_data.values
+# test_data = test_data.reshape(-1, 1)  # Reshape to ensure it's a 1D array if necessary
+
+# Debugging checks
+print(f"Length of test data: {len(test_data)}")
+print(f"First few rows of test_data: {test_data[:5]}")
+# Check for missing values in test_data
+if np.isnan(test_data).any():
+    test_data = np.nan_to_num(test_data)  # Replace NaNs with zeros
+
+
+# Generate sequences and targets for test data
 X_test, y_test = create_sequences(test_data, seq_length)
 
 # Reshape data for LSTM input
