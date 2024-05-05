@@ -1,0 +1,277 @@
+---
+title: "Univariate forecasting using XGBoost algo (US VIX)"
+date: "2024-05-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Packages
+
+```{r}
+setwd("D:/Research/QUANT_MODEL/VIX")
+
+# Load necessary libraries
+library(xgboost)
+library(dplyr)
+library(tibble)
+library(readxl)
+# library(timeSeries)
+library(zoo)
+# install.packages("ParBayesianOptimization")
+library(ParBayesianOptimization)
+library(caret)  # For GridSearchCV
+library(Metrics)
+```
+
+## DATA
+
+```{r}
+# Load the US VIX data
+vix_data <- read_excel("VIX_History.xlsx")
+
+# Convert date column to date format and sort the data
+vix_data$DATE <- as.Date(vix_data$DATE)
+
+# Feature engineering: create lag features and moving averages
+vix_data <- vix_data %>%
+  mutate(
+    lag1 = lag(vix_data$VIX, n = 1),
+    lag2 = lag(vix_data$VIX, n = 2),
+    lag3 = lag(vix_data$VIX, n = 3),
+    ma3 = rollmean(vix_data$VIX, k = 3, fill=NA, align='right'),
+    ma5 = rollmean(vix_data$VIX, k = 5, fill=NA, align='right')
+  )
+
+# Remove rows with NA values
+vix_data <- vix_data %>%
+  na.omit()
+
+
+```
+
+## Splitting the Data
+
+```{r}
+# Split data into training and testing sets (80-20 split)
+split_point <- floor(0.8 * nrow(vix_data))
+train_data <- vix_data[1:split_point, ]
+test_data <- vix_data[(split_point + 1):nrow(vix_data), ]
+
+# Convert data to DMatrix format
+train_matrix <- as.matrix(train_data[, -1])  # Exclude Date column
+train_label <- train_data$VIX
+train_dmatrix <- xgb.DMatrix(data = train_matrix, label = train_label)
+
+test_matrix <- as.matrix(test_data[, -1])
+test_label <- test_data$VIX
+test_dmatrix <- xgb.DMatrix(data = test_matrix, label = test_label)
+```
+
+# Bayesian optimization process
+```{r}
+xgboost_optimization <- function(max_depth, eta, gamma, colsample_bytree, min_child_weight, subsample) {
+    # Define the parameters for the model
+    params <- list(
+        booster = "gbtree",
+        objective = "reg:squarederror",  # Specify the regression objective
+        max_depth = as.integer(max_depth),
+        eta = eta,
+        gamma = gamma,
+        colsample_bytree = colsample_bytree,
+        min_child_weight = min_child_weight,
+        subsample = subsample
+    )
+    
+    # Train the XGBoost model
+    nrounds <- 100
+    model <- xgboost(
+        data = train_dmatrix,
+        params = params,
+        nrounds = nrounds,
+        verbose = 3
+    )
+    
+    # Predict on the test set
+    predictions <- predict(model, test_dmatrix)
+    
+    # Calculate MAPE
+    mape <- mean(abs((test_label - predictions) / test_label)) * 100
+    
+    # Return negative MAPE (since bayesOpt maximizes the score)
+    return(list(Score = -mape))
+}
+
+
+## Defining range of hyperparameters
+
+search_space <- list(
+    max_depth = c(3L, 10L),
+    eta = c(0.01, 0.3),
+    gamma = c(0, 0.2),
+    colsample_bytree = c(0.5, 1),
+    min_child_weight = c(1, 10),
+    subsample = c(0.7, 1)
+)
+
+# Perform Bayesian optimization using bayesOpt
+bayes_opt_results <- bayesOpt(
+    FUN = xgboost_optimization,
+    bounds = search_space,
+    initPoints = 10,  # Number of initial points
+    iters.n = 30,  # Number of iterations
+    verbose =  TRUE 
+)
+
+
+best_params <- getBestPars(bayes_opt_results)
+best_params
+
+# Train the final model using the best parameters
+final_model <- xgboost(
+    data = train_dmatrix,
+    params = list(
+        booster = "gbtree",
+        objective = "reg:squarederror",  # Specify the regression objective
+        max_depth = as.integer(best_params$max_depth),
+        eta = best_params$eta,
+        gamma = best_params$gamma,
+        colsample_bytree = best_params$colsample_bytree,
+        min_child_weight = best_params$min_child_weight,
+        subsample = best_params$subsample,
+        eval_metric = "mape"  # Use MAPE as the evaluation metric
+    ),
+    nrounds = 100,
+    verbose = 0
+)
+
+# Predict on the test set
+final_predictions <- predict(final_model, test_dmatrix)
+
+# Calculate MAPE
+final_mape <- mean(abs((test_label - final_predictions) / test_label)) * 100
+print(paste("Final MAPE:", round(final_mape, 2)))
+
+# Plot actual vs. predicted values
+plot(test_data$DATE, test_label, type = "l", col = "gray", ylab = "US VIX", xlab = "Date")
+lines(test_data$DATE, final_predictions, col = "red")
+legend("topright", legend = c("Actual", "Predicted"), col = c("blue", "red"), lty = 1)
+```
+
+# GridSearchCV
+
+```{r}
+# Define the grid of hyperparameters to search
+grid <- expand.grid(
+    nrounds = c(25, 50, 90),  # Number of boosting rounds
+    max_depth = c(3, 6, 9),  # Maximum depth of trees
+    eta = c(0.01, 0.1, 0.3),  # Learning rate
+    gamma = c(0, 0.1, 0.2),  # Minimum loss reduction
+    colsample_bytree = c(0.5, 0.75, 1),  # Fraction of features to use per tree
+    min_child_weight = c(1, 5, 10),  # Minimum child weight
+    subsample = c(0.7, 0.80, 1)  # Fraction of training data per round
+)
+
+# Define train control with cross-validation
+train_control <- trainControl(
+    method = "cv",
+    number = 5,  # Number of cross-validation folds
+    summaryFunction = function(data, lev = NULL, model = NULL) {
+        mape <- mean(abs((data$obs - data$pred) / data$obs)) * 100
+        return(c(MAPE = mape))
+    },
+    verboseIter = TRUE
+)
+
+# Train the XGBoost model using GridSearchCV
+model <- train( VIX ~ lag1 + lag2 + lag3 + ma3 + ma5, data = train_data,
+    method = "xgbTree",
+    trControl = train_control,
+    tuneGrid = grid,
+    metric = "MAPE"
+)
+
+# Print the best hyperparameters found
+print(model$bestTune)
+print(model$resample)
+
+# Predict on the test set
+predictions <- predict(model, test_data)
+
+# Calculate MAPE on the test set
+test_mape <- mean(abs((test_label - predictions) / test_label)) * 100
+print(paste("Test MAPE:", round(test_mape, 2)))
+
+# Plot actual vs. predicted values
+plot(test_data$DATE, test_label, type = "l", col = "grey", ylab = "US VIX", xlab = "Date")
+lines(test_data$DATE, predictions, col = "red")
+legend("topright", legend = c("Actual", "Predicted"), col = c("blue", "red"), lty = 1)
+```
+# Tree-structured Parzen Estimator (TPE)
+
+```{r}
+# install.packages("tuneR")
+# install.packages("mlr")
+library(tuneR)
+library(mlr)
+
+
+train_data <- as.data.frame(train_data)
+test_data <- as.data.frame(test_data)
+
+# Exclude the DATE column from the training and testing data
+train_data <- train_data %>% select(-DATE)
+test_data <- test_data %>% select(-DATE)
+
+# Create an mlr task for regression
+task <- makeRegrTask(data = train_data, target = "VIX")
+
+# Create an XGBoost learner
+learner <- makeLearner("regr.xgboost")
+
+# Define hyperparameter space for tuning
+param_set <- makeParamSet(
+  makeNumericParam("eta", lower = 0.01, upper = 0.3),
+  makeIntegerParam("max_depth", lower = 2, upper = 10),
+  makeIntegerParam("min_child_weight", lower = 1, upper = 10),
+  makeNumericParam("subsample", lower = 0.5, upper = 1.0),
+  makeNumericParam("colsample_bytree", lower = 0.5, upper = 1.0)
+)
+
+# Set up TPE tuning strategy
+tuning_control <- makeTuneControlRandom(maxit = 20)
+
+# Perform hyperparameter tuning
+tuned_params <- tuneParams(
+  learner = learner,
+  task = task,
+  resampling = makeResampleDesc("CV", iters = 5), # Use cross-validation
+  measures = list(mape), # Use MAPE as the evaluation metric
+  par.set = param_set,
+  control = tuning_control
+)
+
+# Print the best parameters
+print(tuned_params)
+
+# Train the final model using the best parameters
+final_model <- setHyperPars(
+  learner,
+  par.vals = tuned_params$x
+)
+
+# Train the model
+final_model <- train(final_model, task)
+
+# Predict on the test set
+predictions <- predict(final_model, newdata = test_data)
+predictions$data
+
+
+# Evaluate the model's performance
+test_mape <- mape(test_data$US_VIX, predictions)
+cat("Test MAPE:", test_mape, "\n")
+```
+
