@@ -1,0 +1,44 @@
+# Load necessary libraries
+library(forecast)
+library(tseries)
+
+# Load your data
+# Make sure your data frame contains a Date column and a VIX column
+data <- read.csv("your_data_file.csv")
+
+# Convert the Date column to Date type
+data$Date <- as.Date(data$Date)
+
+# Set the VIX data as a time series object
+vix_data <- ts(data$VIX, frequency = 252, start = c(2017, 1))
+
+# Calculate Exponential Moving Average (EMA)
+ema3 <- TTR::EMA(vix_data, n = 3)
+ema5 <- TTR::EMA(vix_data, n = 5)
+
+# Add EMA columns to the data frame
+data$ema3 <- ema3
+data$ema5 <- ema5
+
+# Remove rows with NA values (EMA calculations may introduce NA at the start)
+data <- data[complete.cases(data), ]
+
+# Combine VIX data and EMA features
+combined_data <- cbind(data$VIX, data$ema3, data$ema5)
+
+# Fit ARIMA model on the VIX data with EMA features
+fit <- auto.arima(combined_data[, 1], xreg = combined_data[, 2:3])
+
+# Summarize the fitted model
+summary(fit)
+
+# Forecast future values
+forecast_horizon <- 30  # Choose your forecast horizon
+future_forecast <- forecast(fit, h = forecast_horizon, xreg = combined_data[(length(data$VIX) + 1):(length(data$VIX) + forecast_horizon), 2:3])
+
+# Print forecast results
+print(future_forecast)
+
+# Plot the forecast results
+plot(future_forecast)
+
