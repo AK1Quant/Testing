@@ -1,0 +1,40 @@
+# Importing necessary libraries
+import pandas as pd
+from neuralprophet import NeuralProphet
+from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
+
+# Step 2: Load the dataset
+data = pd.read_csv('your_dataset.csv')  # Replace 'your_dataset.csv' with the path to your VIX dataset
+
+# Step 3: Preprocess the data
+data['DATE'] = pd.to_datetime(data['DATE'])  # Convert DATE column to datetime
+data = data.rename(columns={'DATE': 'ds', 'VIX': 'y'})  # Rename columns for NeuralProphet compatibility
+
+# Step 4: Split the data into training and testing sets
+train_data, test_data = train_test_split(data, test_size=0.2, shuffle=False)
+
+# Step 5: Instantiate the NeuralProphet model
+model = NeuralProphet(
+    n_changepoints=10,  # You can adjust hyperparameters as needed
+    changepoints=None,
+    changepoint_range=0.9,
+    yearly_seasonality='auto',
+    weekly_seasonality='auto',
+    daily_seasonality='auto'
+)
+
+# Step 6: Train the model
+model.fit(train_data, freq='D', epochs=100)  # Adjust 'freq' based on your data frequency
+
+# Step 7: Evaluate the model
+metrics = model.test(test_data)
+print(metrics)
+
+# Step 8: Make predictions
+future = model.make_future_dataframe(test_data, periods=30)  # 30 is the number of future periods
+forecast = model.predict(future)
+
+# Plotting the forecast
+fig = model.plot(forecast)
+plt.show()
