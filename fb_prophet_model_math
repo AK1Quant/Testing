@@ -1,0 +1,70 @@
+Facebook Prophet is a time series forecasting tool that uses an additive model to combine various components such as trend, seasonality, and holiday effects to produce forecasts. It was designed to handle data with missing values, outliers, and complex seasonality patterns, making it a robust tool for real-world forecasting scenarios. Let's dive into the mathematical concepts and formulas behind the Prophet model:
+
+### Additive Model:
+
+The Prophet model uses an additive model for time series forecasting, combining different components to generate the final forecast:
+
+\[ \hat{y}(t) = g(t) + s(t) + h(t) + \epsilon_t \]
+
+Where:
+- \( \hat{y}(t) \) is the forecasted value at time \( t \).
+- \( g(t) \) is the trend component.
+- \( s(t) \) is the seasonality component (including yearly, weekly, and daily patterns).
+- \( h(t) \) is the holiday component.
+- \( \epsilon_t \) is the error term (residual) capturing any unexplained variability.
+
+### Trend Component:
+
+Prophet models the trend using a piecewise linear or logistic growth curve, depending on whether you set a growth ceiling. The general formula is:
+
+\[ g(t) = (k + \delta_a)(t - t_a) \]
+
+Where:
+- \( k \) is the growth rate.
+- \( \delta_a \) is the change in growth rate at a changepoint \( t_a \).
+- The trend is allowed to change at specified changepoints, which are automatically selected or can be manually specified.
+
+For logistic growth:
+
+\[ g(t) = \frac{C}{1 + \exp(-k \cdot (t - m))} \]
+
+Where:
+- \( C \) is the carrying capacity (maximum value).
+- \( k \) is the growth rate.
+- \( m \) is the midpoint of the growth curve.
+
+### Seasonality Component:
+
+Prophet handles seasonality as follows:
+
+- **Yearly Seasonality**: Modeled as a Fourier series.
+    \[ s(t) = \sum_{n=1}^{N} \left[ a_n \cos \left(\frac{2 \pi n t}{P}\right) + b_n \sin \left(\frac{2 \pi n t}{P}\right) \right] \]
+
+    Where:
+    - \( P \) is the period of the seasonality (e.g., 365.25 for yearly seasonality).
+    - \( N \) is the number of harmonics (default is 10 for yearly seasonality).
+    - \( a_n \) and \( b_n \) are Fourier coefficients.
+
+- **Weekly and Daily Seasonality**: Modeled similarly with the appropriate period (7 for weekly and 1 for daily).
+
+### Holiday Component:
+
+Prophet allows for the inclusion of holiday effects. The holiday component is modeled as:
+
+\[ h(t) = \sum_i [\text{holiday}_{i}(t) \cdot (\alpha_i + \beta_i \cdot \sin(2 \pi t_i) + \gamma_i \cdot \cos(2 \pi t_i))] \]
+
+Where:
+- \( \text{holiday}_{i}(t) \) is a binary variable indicating whether time \( t \) is a particular holiday \( i \).
+- \( \alpha_i \), \( \beta_i \), and \( \gamma_i \) are parameters that capture the impact of each holiday.
+
+### Uncertainty Intervals:
+
+Prophet calculates uncertainty intervals for the forecast using bootstrapping. It computes a large number of simulations from the error distributions and uses them to estimate the prediction intervals.
+
+### Model Fitting:
+
+The model parameters are optimized using a variant of the Stan probabilistic programming language, which employs Bayesian inference and Markov chain Monte Carlo (MCMC) methods to fit the model and estimate parameters.
+
+### Conclusion:
+
+By combining these components, Prophet can produce forecasts that account for trend changes, seasonality patterns, and holiday effects, providing interpretable and robust forecasts for time series data.
