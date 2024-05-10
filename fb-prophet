@@ -27,15 +27,30 @@ Create an instance of the Prophet model and configure it to consider holidays an
 
 Here's how to configure the Prophet model:
 
+```{r}
+
+# Create a custom data frame for special events (COVID-19 period)
+covid_period <- data.frame(
+    ds = as.Date(c("2020-02-01", "2020-06-30")),  # Define the start and end dates of the COVID-19 period
+    lower_bound = 1,  # Start of the event period
+    upper_bound = 1   # End of the event period
+)
+
+# You can add more specific events as needed
+```
+
+
+
 ```r
-# Create a new Prophet model
+
+# Add the custom event regressor to the data
+# Create a binary column for the COVID-19 period (1 for COVID-19 period and 0 otherwise)
+data$covid_event <- ifelse(data$ds >= as.Date("2020-02-01") & data$ds <= as.Date("2020-06-30"), 1, 0)
+
+# Add the custom regressor to the model
 model <- prophet()
-
-# Add country-specific holidays (e.g., 'US' for the United States)
 model <- add_country_holidays(model, country_name = "US")
-
-# Optionally enable daily and weekly seasonality explicitly
-model <- prophet(daily_seasonality = TRUE, weekly_seasonality = TRUE)
+model <- add_regressor(model, "covid_event")
 ```
 
 ### Step 4: Train the Model
@@ -55,7 +70,10 @@ Once the model is trained, you can make forecasts for future dates:
 
 ```r
 # Create a future data frame for forecasting
-future <- make_future_dataframe(model, periods = 365)  # Forecast for the next 365 days
+future <- make_future_dataframe(model, periods = 365)
+
+# Add the covid_event regressor to the future data frame
+future$covid_event <- ifelse(future$ds >= as.Date("2020-02-01") & future$ds <= as.Date("2020-06-30"), 1, 0)
 
 # Make predictions
 forecast <- predict(model, future)
