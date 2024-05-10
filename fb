@@ -1,0 +1,40 @@
+# Load your data
+us_vix_df <- read.csv("path_to_your_data.csv")
+
+# Convert DATE column to Date type
+us_vix_df$DATE <- as.Date(us_vix_df$DATE)
+
+# Rename the columns to suit Prophet
+us_vix_df <- us_vix_df %>%
+  rename(ds = DATE, y = VIX)
+
+# Instantiate the Prophet model
+model <- prophet()
+
+# Add US holidays
+model <- add_country_holidays(model, country_name = "US")
+
+# Add COVID event as a custom seasonality
+# `covid_event` column should be 0 or 1 indicating the presence of the event
+covid_event_df <- us_vix_df %>%
+  select(ds, covid_event) %>%
+  rename(event = covid_event)
+
+model <- add_regressor(model, name = "event")
+
+# Fit the model to the data
+model <- fit.prophet(model, us_vix_df)
+
+# Create a future data frame to make predictions
+future <- make_future_dataframe(model, periods = 365) # Forecast for 1 year into the future
+
+# Add the COVID event data to the future data frame
+future$event <- covid_event_df$event[match(future$ds, covid_event_df$ds)]
+future$event[is.na(future$event)] <- 0
+
+# Make predictions
+forecast <- predict(model, future)
+
+# Plot the forecast
+plot(model, forecast)
+prophet_plot_components(model, forecast)
