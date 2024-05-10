@@ -1,8 +1,11 @@
 # Importing necessary libraries
 import pandas as pd
-from neuralprophet import NeuralProphet
+from neuralprophet import NeuralProphet, set_random_seed
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
+
+# Set a random seed for reproducibility
+set_random_seed(42)
 
 # Step 2: Load the dataset
 data = pd.read_csv('your_dataset.csv')  # Replace 'your_dataset.csv' with the path to your VIX dataset
@@ -14,24 +17,38 @@ data = data.rename(columns={'DATE': 'ds', 'VIX': 'y'})  # Rename columns for Neu
 # Step 4: Split the data into training and testing sets
 train_data, test_data = train_test_split(data, test_size=0.2, shuffle=False)
 
-# Step 5: Instantiate the NeuralProphet model
+# Step 5: Define the COVID-19 period as a special event
+# Specify the date range for the COVID-19 period
+covid_event_dates = pd.date_range(start='2020-02-01', end='2020-04-30')
+
+# Create a DataFrame for the COVID-19 event
+covid_event_df = pd.DataFrame({
+    'event': ['covid'] * len(covid_event_dates),
+    'ds': covid_event_dates
+})
+
+# Step 6: Instantiate the NeuralProphet model
 model = NeuralProphet(
-    n_changepoints=10,  # You can adjust hyperparameters as needed
+    n_changepoints=10,  # Adjust hyperparameters as needed
     changepoints=None,
     changepoint_range=0.9,
     yearly_seasonality='auto',
     weekly_seasonality='auto',
-    daily_seasonality='auto'
+    daily_seasonality='auto',
+    events=['covid']
 )
 
-# Step 6: Train the model
-model.fit(train_data, freq='D', epochs=100)  # Adjust 'freq' based on your data frequency
+# Add the event data to the model
+model.add_events(covid_event_df)
 
-# Step 7: Evaluate the model
+# Step 7: Train the model
+model.fit(train_data, freq='D', epochs=100)
+
+# Step 8: Evaluate the model
 metrics = model.test(test_data)
-print(metrics)
+print("Model performance metrics:", metrics)
 
-# Step 8: Make predictions
+# Step 9: Make predictions
 future = model.make_future_dataframe(test_data, periods=30)  # 30 is the number of future periods
 forecast = model.predict(future)
 
