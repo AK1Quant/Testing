@@ -27,6 +27,17 @@ covid_event_df = pd.DataFrame({
     'ds': covid_event_dates
 })
 
+import torch
+import numpy as np
+
+def mape_loss(y_true, y_pred):
+    """
+    Mean Absolute Percentage Error (MAPE) loss function.
+    """
+    y_true = torch.tensor(y_true)
+    y_pred = torch.tensor(y_pred)
+    return torch.mean(torch.abs((y_true - y_pred) / y_true)) * 100
+
 # Step 6: Instantiate the NeuralProphet model
 model = NeuralProphet(
     n_changepoints=10,  # Adjust hyperparameters as needed
@@ -42,7 +53,7 @@ model = NeuralProphet(
 model.add_events(covid_event_df)
 
 # Step 7: Train the model
-model.fit(train_data, freq='D', epochs=100)
+model.fit(train_data, freq='D', epochs=100, loss_func=mape_loss)
 
 # Step 8: Evaluate the model
 metrics = model.test(test_data)
