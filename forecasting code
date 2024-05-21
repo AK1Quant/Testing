@@ -1,0 +1,52 @@
+# Load necessary libraries
+library(xgboost)
+library(data.table)
+
+# Assume you have a trained XGBoost model named `model`
+# and you have your historical dataset named `historical_data`
+
+# Example: historical_data is a data frame or matrix containing the features up to the current period
+# Ensure historical_data includes the target variable (e.g., 'value') as the last column for recursive forecasting
+
+# Function to generate the next forecast step
+generate_next_forecast <- function(model, current_data) {
+  # Prepare the current data for prediction
+  current_matrix <- xgb.DMatrix(data = as.matrix(current_data))
+  
+  # Predict the next value
+  next_value <- predict(model, current_matrix)
+  
+  # Return the next value
+  return(next_value)
+}
+
+# Number of future steps to forecast
+h <- 61
+
+# Store the historical data in a new variable to keep original data intact
+forecast_data <- historical_data
+
+# Initialize an empty vector to store future predictions
+future_predictions <- numeric(h)
+
+# Recursive forecasting
+for (i in 1:h) {
+  # Generate the next forecast
+  next_value <- generate_next_forecast(model, forecast_data)
+  
+  # Append the predicted value to the future_predictions vector
+  future_predictions[i] <- next_value
+  
+  # Update forecast_data by appending the new prediction
+  # You need to update your feature set accordingly
+  # Here, assuming a simple example where we append the predicted value to the feature set
+  new_row <- c(forecast_data[nrow(forecast_data), -ncol(forecast_data)], next_value)
+  forecast_data <- rbind(forecast_data, new_row)
+}
+
+# Print or save the future predictions
+print(future_predictions)
+
+# If you need to save the future predictions to a CSV file
+future_predictions_df <- data.table(future_predictions)
+fwrite(future_predictions_df, file = "future_predictions.csv")
