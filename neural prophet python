@@ -1,0 +1,69 @@
+import pandas as pd
+from neuralprophet import NeuralProphet
+from sklearn.metrics import mean_absolute_percentage_error
+
+# Load your data
+# Assuming your data is in a CSV file named 'us_vix.csv' with columns 'date' and 'vix'
+data = pd.read_csv('us_vix.csv', parse_dates=['date'])
+data.columns = ['ds', 'y']  # Rename columns for NeuralProphet
+
+# Initialize NeuralProphet model with custom parameters
+model = NeuralProphet(
+    n_forecasts=30,
+    n_lags=30,
+    yearly_seasonality='auto',
+    weekly_seasonality='auto',
+    daily_seasonality='auto',
+    seasonality_mode='additive',
+    changepoints_range=0.95,
+    n_changepoints=30
+)
+
+#_-----------------------------------------------------------------------------------------------------------#
+# Initialize NeuralProphet model with custom parameters
+model = NeuralProphet(
+    n_forecasts=30,
+    n_lags=60,  # Increased number of lags
+    yearly_seasonality='auto',
+    weekly_seasonality='auto',
+    daily_seasonality=False,  # Disabling daily seasonality if not needed
+    seasonality_mode='additive',
+    changepoints_range=0.95,
+    n_changepoints=30,
+    learning_rate=0.01,  # Custom learning rate
+    batch_size=64  # Custom batch size
+)
+
+# Optionally, add custom seasonalities if needed
+model.add_seasonality(name='monthly', period=30.5, fourier_order=5)
+#--------------------------------------------------------------------------------------------------------------#
+
+# Fit the model
+metrics = model.fit(data, freq='D')
+
+# Make predictions
+future = model.make_future_dataframe(data, periods=30)
+forecast = model.predict(future)
+
+# Calculate MAPE on the training data
+train_forecast = model.predict(data)
+mape = mean_absolute_percentage_error(data['y'], train_forecast['yhat1'])
+print(f'MAPE: {mape}')
+
+# Print the future predictions
+print(forecast[['ds', 'yhat1']].tail(30))
+
+#-----------------------------------------------------------------------------------------------------------#
+### Explanation of Parameters:
+1. **`n_forecasts`**: The number of future steps to predict.
+2. **`n_lags`**: The number of lagged values to use as inputs.
+3. **`yearly_seasonality`, `weekly_seasonality`, `daily_seasonality`**: These parameters control seasonality components. Setting them to `'auto'` allows the model to automatically detect and adjust for seasonality.
+4. **`seasonality_mode`**: Specifies whether the seasonality is 'additive' or 'multiplicative'.
+5. **`changepoints_range`**: The proportion of history in which trend changepoints will be estimated.
+6. **`n_changepoints`**: The number of changepoints to include in the model.
+
+NeuralProphet doesn't expose parameters like `num_hidden_layers` and `d_hidden` directly in its high-level API. These aspects are managed internally by the model. If you need to configure these details explicitly, you might need to delve into the source code or wait for future releases of NeuralProphet that might support more granular customization.
+
+For now, this script provides a robust way to configure and train the model with the available high-level parameters. This approach should work without errors and allows you to evaluate and forecast your time series data effectively.
+#--------------------------------------------------------------------------------------------------------_----#
+
