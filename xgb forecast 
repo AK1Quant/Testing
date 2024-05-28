@@ -1,0 +1,36 @@
+library(xgboost)
+
+# Load the trained model
+bst <- xgb.load("path_to_your_model.model")
+
+# Load VIX data
+vix_data <- read.csv("path_to_your_vix_data.csv")
+vix_data$time_index <- as.Date(vix_data$date)  # Assuming date column exists and converting to Date
+
+# Define forecast horizon
+forecast_horizon <- 10
+
+# Create future time indices
+last_time_index <- max(vix_data$time_index)
+future_time_index <- seq(from = last_time_index + 1, by = 1, length.out = forecast_horizon)
+
+# Create placeholder dataframe for future periods
+future_data <- data.frame(
+  time_index = future_time_index,
+  VIX = mean(vix_data$VIX, na.rm = TRUE)  # Example placeholder values
+)
+
+# Prepare the data matrix for XGBoost
+future_matrix <- xgb.DMatrix(data = as.matrix(future_data[,-1]))  # Exclude time index
+
+# Predict future values
+future_predictions <- predict(bst, future_matrix)
+
+# Combine time index with predictions
+future_forecast <- data.frame(
+  time_index = future_data$time_index,
+  predicted_VIX = future_predictions
+)
+
+# Print predictions
+print(future_forecast)
