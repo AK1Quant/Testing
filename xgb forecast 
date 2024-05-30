@@ -1,37 +1,51 @@
 library(xgboost)
+library(dplyr)
 
-# Load the trained model
-bst <- xgb.load("path_to_your_model.model")
+# Function to create lag features and moving averages
+create_features <- function(data) {
+  data <- as.numeric(data)
+  df <- data.frame(
+    lag1 = lag(data, 1),
+    lag2 = lag(data, 2),
+    lag3 = lag(data, 3),
+    ma3 = zoo::rollmean(data, 3, fill = NA, align = "right"),
+    ma5 = zoo::rollmean(data, 5, fill = NA, align = "right")
+  )
+  df <- df %>% drop_na()
+  return(df)
+}
 
-# Load VIX data
-vix_data <- read.csv("path_to_your_vix_data.csv")
-vix_data$time_index <- as.Date(vix_data$date)  # Assuming date column exists and converting to Date
+# Function to predict future values and perform feature engineering
+predict_and_engineer_features <- function(model, new_data, future_periods) {
+  # Predict future values using the xgboost model
+  dnew <- xgb.DMatrix(data = matrix(new_data, ncol = 1))
+  predictions <- predict(model, dnew)
+  
+  # Create feature-engineered data frame from predictions
+  features_df <- create_features(predictions)
+  
+  # Calculate the average of all features
+  features_avg <- features_df %>% summarise(across(everything(), mean, na.rm = TRUE))
+  
+  return(features_avg)
+}
 
-# Define forecast horizon
-forecast_horizon <- 10
+# Example usage
+set.seed(123) # For reproducibility
+data <- rnorm(1887) # Replace this with your actual data
 
-# Create future time indices
-last_time_index <- max(vix_data$time_index)
-future_time_index <- seq(from = last_time_index + 1, by = 1, length.out = forecast_horizon)
+# Prepare the data for xgboost
+dtrain <- xgb.DMatrix(data = matrix(data, ncol = 1), label = data)
 
-# Create placeholder dataframe for future periods
-future_data <- data.frame(
-  time_index = future_time_index,
-  VIX = mean(vix_data$VIX, na.rm = TRUE)  # Example placeholder values
-)
+# Train the xgboost model
+params <- list(objective = "reg:squarederror", eval_metric = "rmse")
+model <- xgboost(params = params, data = dtrain, nrounds = 100, verbose = 0)
 
-# Prepare the data matrix for XGBoost
-future_matrix <- xgb.DMatrix(data = as.matrix(future_data[,-1]))  # Exclude time index
+# New data for prediction
+new_data <- rnorm(100) # Replace this with your actual new data
 
-# Predict future values
-future_predictions <- predict(bst, future_matrix)
+# Predict and perform feature engineering
+result <- predict_and_engineer_features(model, new_data, future_periods = 100)
 
-# Combine time index with predictions
-future_forecast <- data.frame(
-  time_index = future_data$time_index,
-  predicted_VIX = future_predictions
-)
-
-# Print predictions
-print(future_forecast)
- 
+# Print the result
+print(result)
