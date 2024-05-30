@@ -1,51 +1,56 @@
 library(xgboost)
 library(dplyr)
+library(zoo)
 
 # Function to create lag features and moving averages
 create_features <- function(data) {
   data <- as.numeric(data)
   df <- data.frame(
+    value = data,
     lag1 = lag(data, 1),
     lag2 = lag(data, 2),
     lag3 = lag(data, 3),
-    ma3 = zoo::rollmean(data, 3, fill = NA, align = "right"),
-    ma5 = zoo::rollmean(data, 5, fill = NA, align = "right")
+    ma3 = rollmean(data, 3, fill = NA, align = "right"),
+    ma5 = rollmean(data, 5, fill = NA, align = "right")
   )
   df <- df %>% drop_na()
   return(df)
 }
 
-# Function to predict future values and perform feature engineering
-predict_and_engineer_features <- function(model, new_data, future_periods) {
-  # Predict future values using the xgboost model
-  dnew <- xgb.DMatrix(data = matrix(new_data, ncol = 1))
-  predictions <- predict(model, dnew)
+# Function to predict and update data with new predictions
+predict_and_update <- function(model, data, n_predictions, n_iterations) {
+  for (i in 1:n_iterations) {
+    # Prepare data for prediction
+    features_df <- create_features(data)
+    dtest <- xgb.DMatrix(data = as.matrix(features_df))
+    
+    # Predict the next n_predictions values
+    predictions <- predict(model, dtest, ntreelimit = model$best_ntreelimit)[1:n_predictions]
+    
+    # Append the predictions to the data
+    data <- c(data, predictions)
+  }
   
-  # Create feature-engineered data frame from predictions
-  features_df <- create_features(predictions)
-  
-  # Calculate the average of all features
-  features_avg <- features_df %>% summarise(across(everything(), mean, na.rm = TRUE))
-  
-  return(features_avg)
+  # Return the updated data with features
+  final_features_df <- create_features(data)
+  return(final_features_df)
 }
 
 # Example usage
 set.seed(123) # For reproducibility
-data <- rnorm(1887) # Replace this with your actual data
+data <- rnorm(100) # Replace this with your actual test data
 
 # Prepare the data for xgboost
 dtrain <- xgb.DMatrix(data = matrix(data, ncol = 1), label = data)
 
 # Train the xgboost model
 params <- list(objective = "reg:squarederror", eval_metric = "rmse")
-model <- xgboost(params = params, data = dtrain, nrounds = 100, verbose = 0)
+final_model <- xgboost(params = params, data = dtrain, nrounds = 100, verbose = 0)
 
-# New data for prediction
-new_data <- rnorm(100) # Replace this with your actual new data
+# Predict and update data
+n_predictions <- 5
+n_iterations <- 10 # Number of times to iterate the prediction and update process
+result <- predict_and_update(final_model, data, n_predictions, n_iterations)
 
-# Predict and perform feature engineering
-result <- predict_and_engineer_features(model, new_data, future_periods = 100)
-
-# Print the result
+# Print the final data frame with features
 print(result)
