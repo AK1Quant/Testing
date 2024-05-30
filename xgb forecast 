@@ -34,3 +34,4 @@ future_forecast <- data.frame(
 
 # Print predictions
 print(future_forecast)
+ 
