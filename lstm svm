@@ -1,0 +1,82 @@
+# Load necessary libraries
+library(e1071)
+library(dplyr)
+library(caret)
+library(Metrics)
+
+# Prepare the data
+vix_data <- vix_data %>% arrange(DATE)
+vix_series <- vix_data$VIX
+
+# Normalize the data
+vix_scaled <- scale(vix_series)
+scaled_mean <- attr(vix_scaled, "scaled:center")
+scaled_sd <- attr(vix_scaled, "scaled:scale")
+
+# Create sequences for SVR
+look_back <- 10
+create_sequences <- function(data, look_back) {
+  X <- matrix(nrow = length(data) - look_back, ncol = look_back)
+  Y <- vector(length = length(data) - look_back)
+  for (i in 1:(length(data) - look_back)) {
+    X[i,] <- data[i:(i + look_back - 1)]
+    Y[i] <- data[i + look_back]
+  }
+  list(X, Y)
+}
+
+sequences <- create_sequences(vix_scaled, look_back)
+X <- sequences[[1]]
+Y <- sequences[[2]]
+
+# Split the data into training and testing sets
+set.seed(123)
+train_size <- floor(0.8 * nrow(X))
+X_train <- X[1:train_size,]
+Y_train <- Y[1:train_size]
+X_test <- X[(train_size + 1):nrow(X),]
+Y_test <- Y[(train_size + 1):nrow(X)]
+
+# Hyperparameter tuning using caret
+train_control <- trainControl(method = "cv", number = 5)
+tune_grid <- expand.grid(
+  .sigma = sigest(Y_train)[1], # Using the heuristic from kernlab
+  .C = 2^(-5:5)
+)
+
+svr_tuned <- train(
+  X_train, Y_train,
+  method = "svmRadial",
+  tuneGrid = tune_grid,
+  trControl = train_control,
+  preProcess = c("center", "scale")
+)
+
+# Best hyperparameters
+best_C <- svr_tuned$bestTune$.C
+best_sigma <- svr_tuned$bestTune$.sigma
+
+# Train the final SVR model with optimized hyperparameters
+svr_model <- svm(
+  X_train, Y_train,
+  type = "eps-regression",
+  kernel = "radial",
+  cost = best_C,
+  gamma = 1 / (2 * best_sigma^2)
+)
+
+# Predict using the SVR model
+svr_predictions <- predict(svr_model, X_test)
+
+# Inverse transform the predictions and actual values
+svr_predictions_rescaled <- svr_predictions * scaled_sd + scaled_mean
+Y_test_rescaled <- Y_test * scaled_sd + scaled_mean
+
+# Calculate MAPE
+mape_value <- mape(Y_test_rescaled, svr_predictions_rescaled)
+print(paste("MAPE:", mape_value))
+
+# Plot actual vs predicted
+plot(Y_test_rescaled, type = "l", col = "blue", main = "VIX Forecast", ylab = "VIX", xlab = "Time")
+lines(svr_predictions_rescaled, col = "red")
+legend("topright", legend = c("Actual", "Predicted"), col = c("blue", "red"), lty = 1)
