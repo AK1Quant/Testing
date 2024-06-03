@@ -1,113 +1,80 @@
-
-
-```r
-# Load necessary libraries
-library(keras)
-library(rugarch)
-library(dplyr)
-library(caret)
-library(Metrics)
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense
+from arch import arch_model
+import matplotlib.pyplot as plt
+from sklearn.metrics import mean_absolute_percentage_error
 
 # Prepare the data
-vix_data <- vix_data %>% arrange(DATE)
-vix_series <- vix_data$VIX
+vix_data = vix_data.sort_values('DATE')
+vix_series = vix_data['VIX'].values
 
 # Normalize the data
-vix_scaled <- scale(vix_series)
-scaled_mean <- attr(vix_scaled, "scaled:center")
-scaled_sd <- attr(vix_scaled, "scaled:scale")
+scaler = StandardScaler()
+vix_scaled = scaler.fit_transform(vix_series.reshape(-1, 1))
+scaled_mean = scaler.mean_[0]
+scaled_sd = np.sqrt(scaler.var_[0])
 
 # Create sequences for LSTM
-look_back <- 10
-create_sequences <- function(data, look_back) {
-  X <- array(dim = c(length(data) - look_back, look_back, 1))
-  Y <- array(dim = c(length(data) - look_back, 1))
-  for (i in 1:(length(data) - look_back)) {
-    X[i,,] <- data[i:(i + look_back - 1)]
-    Y[i] <- data[i + look_back]
-  }
-  list(X, Y)
-}
+look_back = 10
+def create_sequences(data, look_back):
+    X, Y = [], []
+    for i in range(len(data) - look_back):
+        X.append(data[i:(i + look_back)])
+        Y.append(data[i + look_back])
+    return np.array(X), np.array(Y)
 
-sequences <- create_sequences(vix_scaled, look_back)
-X <- sequences[[1]]
-Y <- sequences[[2]]
+X, Y = create_sequences(vix_scaled, look_back)
 
 # Split the data into training and testing sets
-set.seed(123)
-train_size <- floor(0.8 * dim(X)[1])
-X_train <- X[1:train_size,,]
-Y_train <- Y[1:train_size]
-X_test <- X[(train_size + 1):dim(X)[1],,]
-Y_test <- Y[(train_size + 1):dim(X)[1]]
+train_size = int(len(X) * 0.8)
+X_train, Y_train = X[:train_size], Y[:train_size]
+X_test, Y_test = X[train_size:], Y[train_size:]
 
 # Define and train the LSTM model
-model <- keras_model_sequential() %>%
-  layer_lstm(units = 50, input_shape = c(look_back, 1)) %>%
-  layer_dense(units = 1)
+model = Sequential()
+model.add(LSTM(units=50, input_shape=(look_back, 1)))
+model.add(Dense(1))
 
-model %>% compile(
-  loss = 'mean_squared_error',
-  optimizer = 'adam'
-)
+model.compile(loss='mean_squared_error', optimizer='adam')
 
-history <- model %>% fit(
-  X_train, Y_train,
-  epochs = 100,
-  batch_size = 1,
-  validation_split = 0.2,
-  verbose = 0
-)
+history = model.fit(X_train, Y_train, epochs=100, batch_size=1, validation_split=0.2, verbose=0)
 
 # Predict using the LSTM model
-lstm_predictions <- model %>% predict(X_test)
+lstm_predictions = model.predict(X_test)
 
 # Inverse transform the predictions and actual values
-lstm_predictions_rescaled <- lstm_predictions * scaled_sd + scaled_mean
-Y_test_rescaled <- Y_test * scaled_sd + scaled_mean
+lstm_predictions_rescaled = lstm_predictions * scaled_sd + scaled_mean
+Y_test_rescaled = Y_test * scaled_sd + scaled_mean
 
 # Calculate residuals
-residuals <- Y_test_rescaled - lstm_predictions_rescaled
+residuals = Y_test_rescaled.flatten() - lstm_predictions_rescaled.flatten()
 
 # Fit GARCH model on residuals
-spec <- ugarchspec(
-  variance.model = list(model = "sGARCH", garchOrder = c(1, 1)),
-  mean.model = list(armaOrder = c(0, 0), include.mean = FALSE),
-  distribution.model = "std"
-)
-fit <- ugarchfit(spec, residuals)
+garch_model = arch_model(residuals, vol='Garch', p=1, q=1)
+garch_fit = garch_model.fit(disp='off')
 
 # Forecast with GARCH model
-garch_forecast <- ugarchforecast(fit, n.ahead = length(residuals))
-garch_predictions <- fitted(garch_forecast)
+garch_forecast = garch_fit.forecast(horizon=len(residuals))
+garch_predictions = garch_forecast.mean.values[-1, :]
 
 # Combine LSTM and GARCH forecasts
-final_predictions <- lstm_predictions_rescaled + garch_predictions
+final_predictions = lstm_predictions_rescaled.flatten() + garch_predictions
 
 # Calculate MAPE
-mape_value <- mape(Y_test_rescaled, final_predictions)
-print(paste("MAPE:", mape_value))
+mape_value = mean_absolute_percentage_error(Y_test_rescaled.flatten(), final_predictions)
+print(f"MAPE: {mape_value}")
 
 # Plot actual vs predicted
-plot(Y_test_rescaled, type = "l", col = "blue", main = "VIX Forecast", ylab = "VIX", xlab = "Time")
-lines(final_predictions, col = "red")
-legend("topright", legend = c("Actual", "Predicted"), col = c("blue", "red"), lty = 1)
-```
+plt.plot(Y_test_rescaled, label='Actual', color='blue')
+plt.plot(final_predictions, label='Predicted', color='red')
+plt.title('VIX Forecast')
+plt.ylabel('VIX')
+plt.xlabel('Time')
+plt.legend()
+plt.show()
 
-### Explanation:
-1. **Data Preparation**:
-   - `vix_data` is sorted by date.
-   - The VIX values are scaled for the LSTM model.
-   - A function `create_sequences` is used to create sequences of a specified look-back period for the 
 
-2. **LSTM Model**:
-   - Defined with one LSTM layer followed by a dense layer.
-   - Compiled and trained using the training data.
-
-3. **Residual Calculation and GARCH Model**:
-   - Residuals from the LSTM predictions are calculated.
-   - A GARCH(1,1) model is fitted to these residuals.
-
-4. **Forecasting and Evaluation**:
-   - Forecasts are made using the GARCH model.
-   - Combined predictions are obtained by adding LST
+pip install numpy pandas scikit-learn tensorflow arch matplotlib
