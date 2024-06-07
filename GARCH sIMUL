@@ -1,83 +1,23 @@
-import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from sklearn.preprocessing import MinMaxScaler
-from keras.models import Sequential
-from keras.layers import LSTM, Dense
 from arch import arch_model
 
-# Step 1: Load the data
-# Replace 'your_data.csv' with your actual data file
-data = pd.read_csv('your_data.csv', index_col='Date', parse_dates=True)
-vix = data['VIX']
+# Example: Fitting an ARCH model and getting a forecast
+# Replace this part with your specific ARCH model and data
+data = [1, 2, 3, 4, 5]  # Placeholder for actual data
+model = arch_model(data, vol='ARCH', p=1)
+model_fit = model.fit(disp="off")
+forecast = model_fit.forecast(horizon=5)  # Example forecast horizon
 
-# Step 2: Preprocess the data
-scaler = MinMaxScaler(feature_range=(0, 1))
-vix_scaled = scaler.fit_transform(vix.values.reshape(-1, 1))
+# Extract forecast data
+mean_forecast = forecast.mean.values[-1]
+variance_forecast = forecast.variance.values[-1]
+start_date = model_fit.params.index[-1]  # Example starting date, adjust as needed
 
-train_size = int(len(vix_scaled) * 0.8)
-train, test = vix_scaled[:train_size], vix_scaled[train_size:]
+# Convert to DataFrame
+df_forecast = pd.DataFrame({
+    'Date': pd.date_range(start=start_date, periods=len(mean_forecast), freq='D'),
+    'Mean': mean_forecast,
+    'Variance': variance_forecast
+})
 
-def create_dataset(dataset, look_back=1):
-    X, Y = [], []
-    for i in range(len(dataset) - look_back - 1):
-        a = dataset[i:(i + look_back), 0]
-        X.append(a)
-        Y.append(dataset[i + look_back, 0])
-    return np.array(X), np.array(Y)
-
-look_back = 10
-X_train, y_train = create_dataset(train, look_back)
-X_test, y_test = create_dataset(test, look_back)
-
-X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
-X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
-
-# Step 3: Train the LSTM model
-model = Sequential()
-model.add(LSTM(50, return_sequences=True, input_shape=(look_back, 1)))
-model.add(LSTM(50))
-model.add(Dense(1))
-model.compile(loss='mean_squared_error', optimizer='adam')
-model.fit(X_train, y_train, epochs=20, batch_size=1, verbose=2)
-
-# Step 4: Get LSTM predictions and calculate residuals
-train_predict = model.predict(X_train)
-test_predict = model.predict(X_test)
-
-train_predict = scaler.inverse_transform(train_predict)
-y_train_actual = scaler.inverse_transform([y_train])
-train_residuals = y_train_actual[0] - train_predict[:,0]
-
-test_predict = scaler.inverse_transform(test_predict)
-y_test_actual = scaler.inverse_transform([y_test])
-test_residuals = y_test_actual[0] - test_predict[:,0]
-
-# Step 5: Fit a GARCH model to the residuals
-garch_model = arch_model(train_residuals, vol='Garch', p=1, q=1)
-garch_fit = garch_model.fit(disp='off')
-
-# Step 6: Generate simulations from the GARCH model
-num_simulations = 1000  # Number of simulations
-simulation_horizon = len(test_residuals)  # Number of steps ahead to simulate
-simulations = garch_fit.simulate(params=garch_fit.params, nobs=simulation_horizon, repetitions=num_simulations)
-
-# Extract simulated paths
-simulated_paths = simulations['data']
-
-# Combine the simulated paths into a DataFrame
-simulated_df = pd.DataFrame(simulated_paths.T)
-
-# Save the simulated paths to a CSV file
-simulated_df.to_csv('garch_simulations.csv', index=False)
-
-# Print the first few rows of the simulated paths
-print(simulated_df.head())
-
-# Optional: Plot the simulations
-plt.figure(figsize=(14,7))
-for i in range(min(num_simulations, 10)):  # Plot a few simulations
-    plt.plot(simulated_df[i], linestyle='dashed', alpha=0.5)
-plt.plot(y_test_actual[0], label='Actual VIX', color='black', linewidth=2)
-plt.legend()
-plt.show()
+print(df_forecast)
