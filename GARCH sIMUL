@@ -21,3 +21,14 @@ df_forecast = pd.DataFrame({
 })
 
 print(df_forecast)
+
+simulations = forecast.simulations.values[-1]
+
+# Create DataFrame for simulations
+df_simulations = pd.DataFrame(simulations.T, columns=pd.date_range(start=start_date, periods=forecast_horizon, freq='D'))
+
+# Print the DataFrames
+print("Forecast DataFrame:")
+print(df_forecast)
+print("\nSimulations DataFrame:")
+print(df_simulations)
