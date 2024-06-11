@@ -24,6 +24,11 @@ X, Y = create_sequences(data, look_back)
 # Reshape X for LSTM
 X = X.reshape((X.shape[0], X.shape[1], 1))
 
+# Check data types
+print(f"Data type of X: {X.dtype}")
+print(f"Data type of Y: {Y.dtype}")
+
+
 # Example LSTM model
 model = Sequential()
 model.add(LSTM(50, return_sequences=True, input_shape=(look_back, 1)))
