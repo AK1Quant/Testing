@@ -1,0 +1,44 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from arch import arch_model
+
+# Assume MEV_1['VIX_ld'] is the log-differenced VIX data
+# For demonstration, let's create some example data
+# Replace with your actual data loading
+# MEV_1 = pd.read_csv('your_data.csv')
+# VIX_ld = MEV_1['VIX_ld'].values
+# Example data
+np.random.seed(42)
+VIX_ld = np.random.randn(1000)  # Replace with actual data
+
+# Define and fit the GARCH model
+garch_model = arch_model(VIX_ld, vol='Garch', p=1, q=1, mean='AR', lags=1, dist='skewt')
+garch_fit = garch_model.fit(disp='off')
+
+# Print the fitted model summary
+print(garch_fit.summary())
+
+# Plot the fitted model diagnostics
+garch_fit.plot()
+
+# Forecast the next 92 periods
+forecast_garch = garch_fit.forecast(horizon=92)
+
+# Plot the forecasted values
+fitted_values = forecast_garch.mean['h.1'].values
+forecast_volatility = forecast_garch.variance['h.1'].values
+
+# Plot fitted values
+plt.figure(figsize=(10, 5))
+plt.plot(fitted_values, label='Fitted Values')
+plt.title('GARCH Model Fitted Values')
+plt.legend()
+plt.show()
+
+# Plot forecasted volatility
+plt.figure(figsize=(10, 5))
+plt.plot(np.sqrt(forecast_volatility), label='Forecasted Volatility')
+plt.title('GARCH Model Forecasted Volatility')
+plt.legend()
+plt.show()
