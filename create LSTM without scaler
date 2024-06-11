@@ -1,0 +1,61 @@
+import numpy as np
+import pandas as pd
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense
+import matplotlib.pyplot as plt
+
+# Sample data: Replace this with your actual VIX data
+data = [12.1, 13.2, 15.4, 14.1, 13.8, 12.5, 11.9, 14.7, 15.3, 16.4, 14.9, 13.5, 15.1, 14.3, 13.6, 12.9]
+
+# Convert to numpy array
+data = np.array(data).reshape(-1, 1)
+
+# Create sequences without scaling
+def create_sequences(data, look_back):
+    X, Y = [], []
+    for i in range(len(data) - look_back):
+        X.append(data[i:i + look_back, 0])
+        Y.append(data[i + look_back, 0])
+    return np.array(X), np.array(Y)
+
+look_back = 3
+X, Y = create_sequences(data, look_back)
+
+# Reshape X for LSTM
+X = X.reshape((X.shape[0], X.shape[1], 1))
+
+# Example LSTM model
+model = Sequential()
+model.add(LSTM(50, return_sequences=True, input_shape=(look_back, 1)))
+model.add(LSTM(50))
+model.add(Dense(1))
+model.compile(optimizer='adam', loss='mean_squared_error')
+
+# Fit model
+model.fit(X, Y, epochs=50, batch_size=1, verbose=2)
+
+# Forecast next 5 values
+forecast_input = data[-look_back:].reshape(1, look_back, 1)
+forecast = []
+for _ in range(5):
+    next_value = model.predict(forecast_input)
+    forecast.append(next_value[0, 0])
+    forecast_input = np.append(forecast_input[:, 1:, :], [[next_value]], axis=1)
+
+# Create a DataFrame for results
+forecast_dates = pd.date_range(start='2024-01-01', periods=len(data) + len(forecast), freq='D')
+actual_data = pd.DataFrame({'Date': forecast_dates[:len(data)], 'VIX': data.flatten()})
+forecast_data = pd.DataFrame({'Date': forecast_dates[len(data):], 'VIX': forecast})
+
+# Plot the results
+plt.plot(actual_data['Date'], actual_data['VIX'], label='Actual VIX')
+plt.plot(forecast_data['Date'], forecast_data['VIX'], label='Forecasted VIX', linestyle='dashed')
+plt.legend()
+plt.xlabel('Date')
+plt.ylabel('VIX')
+plt.title('VIX Forecasting with LSTM (Without Scaling)')
+plt.show()
+
+# Print the forecasted values
+print("Forecasted VIX values for the next 5 days:")
+print(forecast)
