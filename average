@@ -1,0 +1,13 @@
+# Example data
+lstm_pred = [1, 2, 3, 4, 5, 6]
+ARIMA_pred = [2, 2, 2, 2, 2, 2]
+
+# Ensure the lists have the same length
+if len(lstm_pred) != len(ARIMA_pred):
+    raise ValueError("The lists must have the same number of elements")
+
+# Calculate the average of each corresponding element from both lists
+average_list = [(lstm + arima) / 2 for lstm, arima in zip(lstm_pred, ARIMA_pred)]
+
+# Output the average list
+print(average_list)
