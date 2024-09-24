@@ -1,0 +1,147 @@
+### Problem Statement:
+
+The goal is to predict the EUR/USD Forex trading volume for the next hour using historical minute-wise data from 2010 to 2024. We'll use the **Bayesian Bridge** model to achieve this, dividing the data into an 80% training set and a 20% test set. We'll evaluate the model's performance using the **Mean Absolute Percentage Error (MAPE)**.
+
+### Mathematical Explanation:
+
+#### 1. **Model Setup:**
+   - Let \( V_t \) represent the EUR/USD trading volume at time \( t \) (measured in minutes).
+   - We want to predict \( V_{t+h} \), where \( h \) is the forecasting horizon (in this case, 60 minutes).
+   - The features will be historical lagged values of the trading volume, such as \( V_{t-1}, V_{t-2}, ..., V_{t-p} \), where \( p \) is the number of lagged terms considered (we can use additional features like price and technical indicators as well).
+
+#### 2. **Bayesian Bridge Regression:**
+   - The model will be of the form:
+     \[
+     V_{t+h} = \beta_0 + \beta_1 V_{t-1} + \beta_2 V_{t-2} + ... + \beta_p V_{t-p} + \epsilon_t
+     \]
+   - We place a **Bridge Prior** on the coefficients \(\beta\):
+     \[
+     \pi(\beta_j) \propto \exp\left(-\lambda |\beta_j|^\alpha\right)
+     \]
+     - \( \lambda > 0 \) is the regularization parameter.
+     - \( 0 < \alpha \leq 2 \) controls the sparsity of the coefficients.
+
+#### 3. **Training and Testing:**
+   - **Training Set**: 80% of the data.
+   - **Test Set**: 20% of the data.
+   - **Evaluation Metric**: Mean Absolute Percentage Error (MAPE):
+     \[
+     \text{MAPE} = \frac{1}{n} \sum_{i=1}^{n} \left| \frac{V_{\text{actual}, i} - V_{\text{predicted}, i}}{V_{\text{actual}, i}} \right| \times 100
+     \]
+
+### Python Code:
+
+```python
+import pandas as pd
+import numpy as np
+import pymc3 as pm
+import matplotlib.pyplot as plt
+from sklearn.metrics import mean_absolute_percentage_error
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+
+# Load the data from Excel
+# Assuming the data has a 'Timestamp' column and a 'Volume' column
+data = pd.read_excel('eurusd_volume_data.xlsx')
+data['Timestamp'] = pd.to_datetime(data['Timestamp'])
+data.set_index('Timestamp', inplace=True)
+
+# Resample data to hourly volume (sum of minute data for each hour)
+hourly_data = data['Volume'].resample('H').sum()
+
+# Create lagged features for the model (past 6 hours as example)
+for lag in range(1, 7):
+    hourly_data[f'lag_{lag}'] = hourly_data['Volume'].shift(lag)
+
+# Drop rows with NaN values (due to lagged features)
+hourly_data.dropna(inplace=True)
+
+# Features and target
+X = hourly_data.drop(columns='Volume')
+y = hourly_data['Volume']
+
+# Split data into 80% train and 20% test sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
+
+# Standardize features (mean=0, variance=1)
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# Bayesian Bridge Model
+with pm.Model() as bridge_model:
+    # Hyperparameters
+    lambda_ = pm.Exponential('lambda', 1.0)
+    alpha = pm.Uniform('alpha', lower=0.1, upper=2.0)
+    
+    # Bridge prior for coefficients
+    beta = pm.Laplace('beta', mu=0, b=lambda_**(1/alpha), shape=X_train_scaled.shape[1])
+    
+    # Intercept
+    intercept = pm.Normal('intercept', mu=0, sigma=10)
+    
+    # Likelihood
+    sigma = pm.HalfCauchy('sigma', beta=1)
+    mu = intercept + pm.math.dot(X_train_scaled, beta)
+    likelihood = pm.Normal('y', mu=mu, sigma=sigma, observed=y_train)
+    
+    # Posterior inference
+    trace = pm.sample(2000, tune=1000, target_accept=0.95, return_inferencedata=False)
+
+# Predict on the test set
+with bridge_model:
+    pm.set_data({'X': X_test_scaled})
+    posterior_predictive = pm.sample_posterior_predictive(trace)
+
+# Predictions and accuracy measurement
+y_pred = np.mean(posterior_predictive['y'], axis=0)
+
+# Calculate MAPE
+mape = mean_absolute_percentage_error(y_test, y_pred) * 100
+print(f"Mean Absolute Percentage Error (MAPE) on the test set: {mape:.2f}%")
+
+# Plot Actual vs Predicted
+plt.figure(figsize=(10, 5))
+plt.plot(y_test.index, y_test, label='Actual Volume')
+plt.plot(y_test.index, y_pred, label='Predicted Volume', linestyle='--')
+plt.title('EUR/USD Trading Volume Prediction - Actual vs Predicted')
+plt.xlabel('Time')
+plt.ylabel('Trading Volume')
+plt.legend()
+plt.show()
+```
+
+### Explanation of the Code:
+
+1. **Data Preparation**:
+   - We read the historical minute-wise data from an Excel file and resample it to hourly volume.
+   - We create lagged features (e.g., past 6 hours) to predict the next hour's volume.
+
+2. **Splitting the Data**:
+   - The data is split into 80% training and 20% test sets. We do not shuffle the data to preserve the time series structure.
+
+3. **Standardization**:
+   - We standardize the features to have mean=0 and variance=1.
+
+4. **Bayesian Bridge Model**:
+   - We define a Bayesian model using `PyMC3` with a Laplace prior (approximation of the bridge prior) for the coefficients, along with hyperparameters for regularization.
+   - We fit the model using MCMC sampling.
+
+5. **Prediction**:
+   - We make predictions on the test set using the posterior samples and calculate the MAPE.
+
+6. **Visualization**:
+   - We plot the actual vs. predicted trading volumes for the test set.
+
+### Dependencies:
+
+Make sure you have the required packages installed:
+
+```bash
+pip install pandas numpy pymc3 matplotlib scikit-learn
+```
+
+### Additional Considerations:
+
+- **Model Tuning**: The lagged features, model priors, and hyperparameters can be further tuned based on domain knowledge and performance.
+- **Feature Engineering**: Additional features like moving averages, technical indicators, or external variables (e.g., macroeconomic data) can improve the model's performance.
