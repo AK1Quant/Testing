@@ -1,0 +1,48 @@
+import pandas as pd
+from pmdarima import auto_arima
+
+def auto_arima_predict(df, forecast_steps=10):
+    # Define auto_arima parameters
+    seasonal = False  
+    information_criterion = 'aic'
+
+    # Initialize forecast dictionary
+    forecasts = {}
+
+    # Iterate over unique currency pairs
+    for currency in df['Currency'].unique():
+        # Slice data for current currency pair
+        series = df[df['Currency'] == currency]['Volume']
+
+        # Check if the series has enough data points
+        if len(series) < forecast_steps:
+            print(f"Not enough data to forecast for {currency}. Skipping...")
+            continue
+
+        try:
+            # Fit auto_arima model
+            model = auto_arima(series, seasonal=seasonal, information_criterion=information_criterion)
+
+            # Generate forecast
+            forecast = model.predict(n_periods=forecast_steps)
+
+            # Store forecast in dictionary
+            forecasts[currency] = forecast
+        except Exception as e:
+            print(f"Error fitting model for {currency}: {e}")
+            continue
+
+    # Convert forecast dictionary to DataFrame
+    if forecasts:
+        forecast_df = pd.DataFrame(forecasts)
+    else:
+        forecast_df = pd.DataFrame()
+
+    return forecast_df
+
+# Load your data
+df = pd.read_csv('fx_spot_rates.csv')
+
+# Call the function with a reasonable number of forecast steps
+forecast = auto_arima_predict(df, forecast_steps=10)
+print(forecast)
