@@ -1,0 +1,81 @@
+Here's a Python function that can achieve this task, including splitting the dataset based on the currency pair, fitting the ARIMA model to each currency pair, and predicting values for each of them.
+
+The function uses the `auto_arima` function from the `pmdarima` package to automatically find the best ARIMA model for each currency pair. It then predicts the next `n` values (in your case 100,000,000), and finally concatenates the predictions into a single dataset.
+
+Here's the implementation:
+
+```python
+import pandas as pd
+from pmdarima import auto_arima
+
+def predict_next_values(dataframe, n_predict=100000000):
+    # Dictionary to hold the predictions for each currency pair
+    predictions_dict = {}
+
+    # List of currency pairs
+    currency_pairs = dataframe['Sym'].unique()
+
+    for pair in currency_pairs:
+        # Slice the dataframe for the current currency pair
+        df_pair = dataframe[dataframe['Sym'] == pair].copy()
+
+        # Ensure the dataframe is sorted by date and time
+        df_pair = df_pair.sort_values(by='Datewithtime')
+
+        # Fit the auto_arima model
+        model = auto_arima(df_pair['vloumenexthour'], 
+                           seasonal=False, 
+                           trace=True,  # This will show the ARIMA fitting process
+                           error_action='ignore', 
+                           suppress_warnings=True)
+
+        # Predict the next `n_predict` values for the current currency pair
+        prediction = model.predict(n_predict)
+
+        # Store the predictions in the dictionary
+        predictions_dict[pair] = prediction
+
+    # Create a new dataframe for concatenating results
+    result_df = pd.DataFrame()
+
+    for pair, pred_values in predictions_dict.items():
+        # Create a temporary dataframe for this pair's predictions
+        temp_df = pd.DataFrame({
+            'Sym': pair,
+            'PredictedVolumeNextHour': pred_values
+        })
+
+        # Concatenate the predictions back into the final result dataframe
+        result_df = pd.concat([result_df, temp_df], axis=0)
+
+    return result_df.reset_index(drop=True)
+```
+
+### Explanation:
+1. **Input**: 
+   - `dataframe`: The input dataframe containing `Datewithtime`, `Sym`, and `vloumenexthour`.
+   - `n_predict`: Number of values to predict (default 100,000,000 as per your requirement).
+
+2. **Process**:
+   - The function extracts the unique currency pairs from the `Sym` column.
+   - For each currency pair, it slices the dataframe, fits an `auto_arima` model, and predicts `n_predict` values.
+   - The predictions for each currency pair are stored in a dictionary and then concatenated into a single dataframe.
+
+3. **Output**:
+   - A single dataframe that contains all the predicted values, including the currency pair (`Sym`) and the predicted `PredictedVolumeNextHour`.
+
+### Example usage:
+
+```python
+# Assuming `df` is your original dataframe with columns 'Datewithtime', 'Sym', 'vloumenexthour'
+result = predict_next_values(df, n_predict=100000000)
+print(result)
+```
+
+Make sure you have the necessary packages installed:
+
+```bash
+pip install pandas pmdarima
+```
+
+This code will run the predictions for each currency pair independently and return the combined prediction set.
