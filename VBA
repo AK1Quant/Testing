@@ -1,0 +1,63 @@
+
+
+```
+Sub AutomateRegression()
+
+    ' Declare variables
+    Dim rngData As Range
+    Dim rngDependent As Range
+    Dim rngIndependent As Range
+    Dim regression As New Regression
+    Dim i As Integer
+    
+    ' Set data range
+    Set rngData = Sheets(1).UsedRange
+    
+    ' Set dependent variable range (Column B)
+    Set rngDependent = rngData.Columns(2)
+    
+    ' Set independent variable range (Columns C onwards)
+    Set rngIndependent = rngData.Columns(3).Resize(, rngData.Columns.Count - 2).Offset(0, 2)
+    
+    ' Create a new regression object
+    Set regression = New Regression
+    
+    ' Configure regression settings
+    With regression
+        .XValues = rngIndependent
+        .YValues = rngDependent
+        .InputRange = rngData
+        .OutputRange = Sheets(2).Range("A1")
+        .ResidualPlots = True
+        .NormalProbabilityPlots = True
+        .OverlappingIntervals = False
+    End With
+    
+    ' Run the regression
+    regression.Execute
+    
+    ' Clean up
+    Set regression = Nothing
+    
+End Sub
+```
+
+*How the code works:*
+
+1. It sets the data range to the used range of the first sheet.
+2. It sets the dependent variable range to column B.
+3. It automatically detects independent variables from columns C onwards.
+4. It creates a new regression object and configures settings.
+5. It runs the regression and outputs results to the second sheet.
+
+*Note:*
+
+- Ensure the Data Analysis Add-in is installed and enabled.
+- Adjust sheet names and ranges as needed.
+
+To run this code:
+
+1. Open Excel and press `Alt + F11` to open the Visual Basic Editor.
+2. In the Editor, go to `Insert` > `Module` to create a new module.
+3. Paste the code into the module.
+4. Run the macro by pressing `F5` or clicking `Run` > `Run Sub/UserForm`.
