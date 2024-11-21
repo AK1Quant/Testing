@@ -1,0 +1,49 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import skew, jarque_bera, shapiro
+import seaborn as sns
+import scipy.stats as stats
+
+# Assume residuals is your array of residuals
+
+# Histogram
+plt.hist(residuals, bins=30, edgecolor='black')
+plt.title('Histogram of Residuals')
+plt.xlabel('Residual')
+plt.ylabel('Frequency')
+plt.show()
+
+# Q-Q Plot
+stats.probplot(residuals, dist="norm", plot=plt)
+plt.title('Q-Q Plot of Residuals')
+plt.show()
+
+# Skewness
+skewness_value = skew(residuals)
+print(f"Skewness: {skewness_value}")
+
+# Jarque-Bera Test
+jb_value, p_value = jarque_bera(residuals)
+print(f"Jarque-Bera test statistic: {jb_value}, p-value: {p_value}")
+
+# Shapiro-Wilk Test
+stat, p = shapiro(residuals)
+print(f"Shapiro-Wilk test statistic: {stat}, p-value: {p}")
+
+# Optional: Seaborn Distribution Plot for better visualization
+sns.histplot(residuals, kde=True)
+plt.title('Residuals Distribution with KDE')
+plt.xlabel('Residual')
+plt.ylabel('Density')
+plt.show()
+
+#Interpreting Results:
+
+    Histogram: Asymmetry in the histogram suggests skewness.
+    Q-Q Plot: Points deviating from the diagonal line indicate non-normality and possible skewness.
+    Skewness Value:
+        Close to 0: Indicates little or no skewness.
+        Positive: Indicates right (positive) skewness.
+        Negative: Indicates left (negative) skewness.
+    Jarque-Bera Test: A significant p-value (usually < 0.05) suggests that the residuals are not normally distributed and may be skewed.
+    Shapiro-Wilk Test: A significant p-value also suggests non-normality and possible skewness.
