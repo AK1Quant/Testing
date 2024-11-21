@@ -1,0 +1,52 @@
+
+Sub RunRegression()
+    
+    ' Declare variables
+    Dim dataRange As Range
+    Dim independentVariableRange As Range
+    Dim dependentVariableRange As Range
+    Dim regressionOutputRange As Range
+    
+    ' Set ranges (adjust to your needs)
+    Set dataRange = Selection
+    Set independentVariableRange = dataRange.Columns(1) ' X values
+    Set dependentVariableRange = dataRange.Columns(2) ' Y values
+    Set regressionOutputRange = Range("E1:F5") ' Output range (adjust)
+    
+    ' Run regression
+    Dim regression As New Trendline
+    Set regression = ActiveSheet.Chart.SetChartElement.BuildChart(independentVariableRange, dependentVariableRange, xlLine, xlLinear)
+    
+    ' Display coefficients in selected output range
+    regressionOutputRange.ClearContents
+    regressionOutputRange.Offset(0, 0).Value = "Intercept"
+    regressionOutputRange.Offset(1, 0).Value = "Slope"
+    regressionOutputRange.Offset(0, 1).Value = regression.Intercept
+    regressionOutputRange.Offset(1, 1).Value = regression.Slope
+    
+    ' Clean up
+    Set regression = Nothing
+    Set dataRange = Nothing
+    Set independentVariableRange = Nothing
+    Set dependentVariableRange = Nothing
+    Set regressionOutputRange = Nothing
+    
+End Sub
+```
+
+To use this script:
+
+1. Open Excel.
+2. Press `Alt + F11` to open the Visual Basic Editor.
+3. In the Editor, go to `Insert` > `Module` to insert a new module.
+4. Paste the script into the module.
+5. Close the Editor.
+6. Select your data (X in column 1, Y in column 2).
+7. Press `Alt + F8`, select `RunRegression`, and click `Run`.
+
+This script assumes:
+
+- Your data is in two columns (X and Y).
+- You want to output the intercept and slope to cells `E1:F2`.
+- You have the `Analysis ToolPak` enabled (for `Trendline` functionality).
+
