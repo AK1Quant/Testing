@@ -1,0 +1,169 @@
+---
+title: "Data Analysis Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(shiny)
+library(readxl)
+library(ggplot2)
+library(tseries)
+library(dplyr)
+library(plotly)
+
+# Reactive values for data storage
+data_input <- reactiveVal(NULL)
+data_ready <- reactiveVal(FALSE)
+```
+
+Sidebar {.sidebar}
+=====================================
+```{r}
+# UI for file upload
+fileInput("file1", "Upload .xlsx file", accept = c(".xlsx"))
+
+# Action button to process the data
+actionButton("process_data", "Process Data")
+
+# Dynamic column selector (populated after upload)
+uiOutput("column_selector")
+
+# Observe file upload
+df <- reactive({
+  req(input$file1)
+  read_excel(input$file1$datapath)
+})
+
+# Populate column selector dynamically
+output$column_selector <- renderUI({
+  req(df())
+  selectInput("column", "Select Column for Analysis", choices = colnames(df()), selected = colnames(df())[1])
+})
+
+# Process Data button logic
+observeEvent(input$process_data, {
+  req(df())
+  data_input(df())
+  data_ready(TRUE)
+})
+```
+
+Data
+=====================================
+```{r}
+renderDataTable({
+  req(data_ready())
+  head(data_input())
+}, options = list(pageLength = 100))
+```
+
+Transformations
+=====================================
+```{r}
+renderPlotly({
+  req(data_ready())
+  req(input$column)
+  
+  data <- data_input()
+  column <- input$column
+  series <- data[[column]]
+  
+  # Create log transformation
+  log_series <- log(series)
+  transformed_data <- data.frame(Original = series, Log_Transformed = log_series)
+  
+  # Plot original and log-transformed series
+  p <- ggplot(transformed_data, aes(x = 1:nrow(transformed_data))) +
+    geom_line(aes(y = Original, color = "Original")) +
+    geom_line(aes(y = Log_Transformed, color = "Log Transformed")) +
+    ggtitle("Transformations") +
+    labs(x = "Index", y = "Value", color = "Series") +
+    theme_minimal()
+  ggplotly(p)
+})
+```
+
+Stationarity Check
+=====================================
+```{r}
+renderPrint({
+  req(data_ready())
+  req(input$column)
+  
+  data <- data_input()
+  column <- input$column
+  series <- na.omit(data[[column]])
+  
+  # Perform ADF test
+  adf_result <- adf.test(series)
+  cat("ADF Test Statistic:", adf_result$statistic, "\n")
+  cat("P-value:", adf_result$p.value, "\n")
+  cat(ifelse(adf_result$p.value < 0.05, "Stationary", "Not Stationary"))
+})
+
+renderPlotly({
+  req(data_ready())
+  req(input$column)
+  
+  data <- data_input()
+  column <- input$column
+  series <- data[[column]]
+  
+  # Plot time series
+  p <- ggplot(data, aes(x = 1:nrow(data), y = !!sym(column))) +
+    geom_line() +
+    ggtitle("Time Series Plot") +
+    labs(x = "Index", y = "Value") +
+    theme_minimal()
+  ggplotly(p)
+})
+```
+
+Outlier Check
+=====================================
+```{r}
+renderPlotly({
+  req(data_ready())
+  req(input$column)
+  
+  data <- data_input()
+  column <- input$column
+  series <- data[[column]]
+  
+  # Create boxplot for outlier detection
+  p <- ggplot(data, aes(y = !!sym(column))) +
+    geom_boxplot() +
+    ggtitle("Outlier Detection") +
+    labs(y = "Value") +
+    theme_minimal()
+  ggplotly(p)
+})
+```
+
+ADF Test with Different Lags
+=====================================
+```{r}
+sliderInput("lags", "Select Maximum Lag:", min = 1, max = 10, value = 3)
+
+renderTable({
+  req(data_ready())
+  req(input$column)
+  req(input$lags)
+  
+  data <- data_input()
+  column <- input$column
+  series <- na.omit(data[[column]])
+  
+  # Perform ADF test for different lags
+  adf_results <- lapply(1:input$lags, function(lag) {
+    test <- adf.test(series, k = lag)
+    data.frame(Lag = lag, Statistic = test$statistic, P_Value = test$p.value)
+  })
+  do.call(rbind, adf_results)
+})
+```
