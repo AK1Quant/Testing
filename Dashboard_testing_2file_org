@@ -1,0 +1,166 @@
+---
+title: "Statistical Tests Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(shiny)
+library(readxl)
+library(openxlsx)
+library(ggplot2)
+library(dplyr)
+library(plotly)
+
+# Placeholder for stat_tests function
+stat_tests <- function(dep_file, intercept = TRUE, freq = "monthly", ADF_criteria = "short") {
+  # Simulated outputs (replace with the actual function logic)
+  stats <- data.frame(Metric = c("R-squared", "Adjusted R-squared", "AIC", "BIC"),
+                      Value = c(0.85, 0.83, 123.4, 130.2))
+
+  plots <- list(
+    acf_plot = ggplot(data.frame(Lag = 1:10, ACF = runif(10)), aes(x = Lag, y = ACF)) +
+      geom_bar(stat = "identity") + ggtitle("ACF Plot"),
+    pacf_plot = ggplot(data.frame(Lag = 1:10, PACF = runif(10)), aes(x = Lag, y = PACF)) +
+      geom_bar(stat = "identity") + ggtitle("PACF Plot")
+  )
+
+  adf_results <- data.frame(Lag = 1:3, Statistic = c(-3.4, -2.8, -3.1), P_Value = c(0.01, 0.03, 0.02))
+
+  list(stats = stats, plots = plots, adf_results = adf_results)
+}
+```
+
+Sidebar {.sidebar}
+=====================================
+```{r}
+# File upload input
+fileInput("dep_file", "Upload Regression Model Input (.xlsx)", accept = c(".xlsx"))
+
+# Checkbox for frequency option
+checkboxGroupInput("freq", "Select Frequency:", choices = c("Monthly" = "monthly", "Quarterly" = "quarterly"), selected = "monthly")
+
+# Checkbox for ADF criteria option
+checkboxGroupInput("ADF_criteria", "Select ADF Criteria:", choices = c("Short" = "short", "Long" = "long"), selected = "short")
+
+# Action button to run the analysis
+actionButton("run_analysis", "Run Analysis")
+
+# Button to download results
+downloadButton("download_results", "Download Results")
+```
+
+Data Preview
+=====================================
+```{r}
+renderDataTable({
+  req(input$dep_file)
+  head(read_excel(input$dep_file$datapath))
+}, options = list(pageLength = 5))
+```
+
+Page: Model Statistics
+=====================================
+```{r}
+output$model_stats <- renderTable({
+  req(input$dep_file, input$run_analysis)
+
+  # Load input data
+  dep_file <- read_excel(input$dep_file$datapath)
+
+  # Run the analysis
+  results <- stat_tests(dep_file, freq = input$freq, ADF_criteria = input$ADF_criteria)
+
+  # Extract model statistics
+  results$stats
+})
+```
+
+Page: Plots
+=====================================
+```{r}
+output$acf_plot <- renderPlotly({
+  req(input$dep_file, input$run_analysis)
+
+  # Load input data
+  dep_file <- read_excel(input$dep_file$datapath)
+
+  # Run the analysis
+  results <- stat_tests(dep_file, freq = input$freq, ADF_criteria = input$ADF_criteria)
+
+  # Extract and render ACF plot
+  ggplotly(results$plots$acf_plot)
+})
+
+output$pacf_plot <- renderPlotly({
+  req(input$dep_file, input$run_analysis)
+
+  # Load input data
+  dep_file <- read_excel(input$dep_file$datapath)
+
+  # Run the analysis
+  results <- stat_tests(dep_file, freq = input$freq, ADF_criteria = input$ADF_criteria)
+
+  # Extract and render PACF plot
+  ggplotly(results$plots$pacf_plot)
+})
+``` 
+
+Page: ADF Test Results
+=====================================
+```{r}
+output$adf_results <- renderTable({
+  req(input$dep_file, input$run_analysis)
+
+  # Load input data
+  dep_file <- read_excel(input$dep_file$datapath)
+
+  # Run the analysis
+  results <- stat_tests(dep_file, freq = input$freq, ADF_criteria = input$ADF_criteria)
+
+  # Extract ADF test results
+  results$adf_results
+})
+```
+
+Download Results
+=====================================
+```{r}
+output$download_results <- downloadHandler(
+  filename = function() {
+    paste("stat_tests_results", Sys.Date(), ".xlsx", sep = "")
+  },
+  content = function(file) {
+    req(input$dep_file, input$run_analysis)
+
+    # Load input data
+    dep_file <- read_excel(input$dep_file$datapath)
+
+    # Run the analysis
+    results <- stat_tests(dep_file, freq = input$freq, ADF_criteria = input$ADF_criteria)
+
+    # Create a workbook
+    wb <- createWorkbook()
+
+    # Add model statistics sheet
+    addWorksheet(wb, "Model Statistics")
+    writeData(wb, "Model Statistics", results$stats)
+
+    # Add plots sheet
+    addWorksheet(wb, "Plots")
+    insertPlot(wb, "Plots", plot = results$plots$acf_plot, xy = c(1, 1))
+    insertPlot(wb, "Plots", plot = results$plots$pacf_plot, xy = c(1, 20))
+
+    # Add ADF test results sheet
+    addWorksheet(wb, "ADF Results")
+    writeData(wb, "ADF Results", results$adf_results)
+
+    # Save workbook
+    saveWorkbook(wb, file, overwrite = TRUE)
+  }
+)
+```
