@@ -1,0 +1,10 @@
+ data <- data %>%
+    mutate(
+      Year = substr(as.character(!!sym(period_col)), 1, 4),
+      Month = substr(as.character(!!sym(period_col)), 5, 6),
+      MonthName = factor(
+        Month,
+        levels = sprintf("%02d", 1:12), 
+        labels = month.name
+      )
+    )
