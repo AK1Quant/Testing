@@ -1,61 +1,52 @@
-# Example dataset (replace with your actual data)
-period <- c(201501, 201502, 201503, 201504, 201505, 201506,
-            201601, 201602, 201603, 201604, 201605, 201606)
-dependent_var <- c(10, 15, 20, 25, 30, 35, 12, 18, 22, 28, 32, 37)  # Dependent variable
-independent_var1 <- c(5, 8, 7, 12, 15, 18, 6, 9, 10, 13, 16, 20)   # Independent variable 1
-independent_var2 <- c(2, 3, 4, 5, 6, 7, 2, 3, 4, 5, 6, 7)          # Independent variable 2
-residuals <- c(1, -1, 0.5, -0.5, 1.2, -1.2, 0.8, -0.8, 0.4, -0.4, 1.5, -1.5) # Residuals
-
-# Create a data frame
-data <- data.frame(
-  Period = period,
-  Dependent = dependent_var,
-  Independent1 = independent_var1,
-  Independent2 = independent_var2,
-  Residuals = residuals
+model_input <- data.frame(
+  period = c(201501, 201502, 201503, 201504, 201505, 201506),
+  Y = c(10, 15, 12, 11, 14, 13),        # Dependent variable
+  X1 = c(5, 6, 5, 6, 7, 6),             # Independent variable 1
+  X2 = c(3, 4, 3, 4, 3, 5)              # Independent variable 2
 )
 
-# Automatically detect independent variables
-independent_variables <- setdiff(names(data), c("Period", "Dependent", "Year", "Month", "Quarter", "MonthName", "QuarterName"))
-
-# Check if data is monthly or quarterly based on Period (YYYYMM format)
-is_monthly <- max(as.numeric(substr(data$Period, 5, 6))) <= 12
-
-if (is_monthly) {
-  # Extract year and month
-  data$Year <- as.numeric(substr(data$Period, 1, 4))
-  data$Month <- as.numeric(substr(data$Period, 5, 6))
-  data$MonthName <- factor(format(as.Date(paste0("2000-", data$Month, "-01")), "%b"), 
-                           levels = month.abb)  # Ensure correct month order
-} else {
-  # Extract year and quarter
-  data$Year <- as.numeric(substr(data$Period, 1, 4))
-  data$Quarter <- ceiling(as.numeric(substr(data$Period, 5, 6)) / 3)
-  data$QuarterName <- factor(data$Quarter, labels = c("Q1", "Q2", "Q3", "Q4"))
-}
-
-# Plotting function for boxplots
-library(ggplot2)
-library(reshape2)
-
-plot_boxplot <- function(group_col, title_suffix) {
-  # Reshape data for plotting
-  melted_data <- melt(data, id.vars = group_col, 
-                      measure.vars = c("Dependent", independent_variables, "Residuals"))
+generate_boxplots <- function(data, dependent_var, independent_vars, period_col = "period") {
+  # Load required libraries
+  library(ggplot2)
+  library(dplyr)
   
-  ggplot(melted_data, aes_string(x = group_col, y = "value", fill = "variable")) +
-    geom_boxplot() +
-    facet_wrap(~variable, scales = "free_y") +
-    labs(title = paste("Boxplots by", title_suffix),
-         x = title_suffix,
-         y = "Value") +
-    theme_minimal()
+  # Ensure the period column is in the correct format
+  if (!all(nchar(data[[period_col]]) == 6)) {
+    stop("Ensure the period column is in the YYYYMM format")
+  }
+  
+  # Extract the month as a factor
+  data <- data %>%
+    mutate(Month = factor(substr(as.character(!!sym(period_col)), 5, 6),
+                          levels = sprintf("%02d", 1:12),
+                          labels = c("JAN", "FEB", "MAR", "APR", "MAY", "JUN", 
+                                     "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")))
+  
+  # Calculate residuals (Assuming a linear model for simplicity)
+  model <- lm(reformulate(independent_vars, dependent_var), data = data)
+  data$Residuals <- residuals(model)
+  
+  # Combine variables of interest for plotting
+  plot_vars <- c(dependent_var, "Residuals", independent_vars)
+  
+  # Create boxplots for each variable grouped by Month
+  for (var in plot_vars) {
+    p <- ggplot(data, aes(x = Month, y = !!sym(var))) +
+      geom_boxplot(fill = "skyblue", color = "darkblue", alpha = 0.7) +
+      labs(title = paste("Boxplot of", var), x = "Month", y = var) +
+      theme_minimal()
+    
+    print(p)
+  }
 }
 
-# Generate boxplots
-if (is_monthly) {
-  print(plot_boxplot("MonthName", "Month"))
-} else {
-  print(plot_boxplot("QuarterName", "Quarter"))
-}
+# Example usage:
+# Assuming `model_input` is your dataset with `period`, dependent, and independent variables:
+# generate_boxplots(model_input, dependent_var = "Y", independent_vars = c("X1", "X2"), period_col = "period")
 
+generate_boxplots(
+  data = model_input,
+  dependent_var = "Y",
+  independent_vars = c("X1", "X2"),
+  period_col = "period"
+)
