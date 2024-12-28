@@ -1,4 +1,10 @@
-for (i in 1:nrow(data)) {
-  result_color <- ifelse(data$Result[i] == "Pass", "\033[32mPass\033[39m", "\033[31mFail\033[39m")
-  cat(sprintf("%-10s %-6d %s\n", data$Student[i], data$Score[i], result_color))
-}
+# Plot Actual and Predicted values
+ggplot(plot_data, aes(x = x)) + 
+  geom_line(aes(y = Actual, color = "Actual"), size = 1) + 
+  geom_line(aes(y = Predicted, color = "Predicted"), size = 1, linetype = "dashed") + 
+  labs(title = "Actual vs Predicted Values", 
+       x = "X", 
+       y = "Y") +
+  scale_color_manual(values = c("Actual" = "blue", "Predicted" = "red")) +
+  theme_minimal() +
+  theme(legend.title = element_blank())
