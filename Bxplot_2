@@ -1,0 +1,33 @@
+generate_boxplots <- function(data, dependent_var, independent_vars, period_col = "period") {
+  # Load required libraries
+  library(ggplot2)
+  library(dplyr)
+
+  # Ensure the period column is in the correct format
+  if (!all(nchar(data[[period_col]]) == 6)) {
+    stop("Ensure the period column is in the YYYYMM format")
+  }
+
+  # Extract the quarter as a factor
+  data <- data %>%
+    mutate(Quarter = factor(ceiling(as.numeric(substr(as.character(!!sym(period_col)), 5, 6)) / 3),
+                            levels = 1:4,
+                            labels = c("Q1", "Q2", "Q3", "Q4")))
+
+  # Calculate residuals (Assuming a linear model for simplicity)
+  model <- lm(reformulate(independent_vars, dependent_var), data = data)
+  data$Residuals <- residuals(model)
+
+  # Combine variables of interest for plotting
+  plot_vars <- c(dependent_var, "Residuals", independent_vars)
+
+  # Create boxplots for each variable grouped by Quarter
+  for (var in plot_vars) {
+    p <- ggplot(data, aes(x = Quarter, y = !!sym(var))) +
+      geom_boxplot(fill = "skyblue", color = "darkblue", alpha = 0.7) +
+      labs(title = paste("Boxplot of", var), x = "Quarter", y = var) +
+      theme_minimal()
+    
+    print(p)
+  }
+}
