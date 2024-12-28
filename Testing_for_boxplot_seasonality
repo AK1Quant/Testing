@@ -1,4 +1,21 @@
- data <- data %>%
+generate_monthly_boxplots <- function(data, dependent_var, independent_vars, period_col = "period") {
+  # Load required libraries
+  library(ggplot2)
+  library(dplyr)
+  library(patchwork)
+  
+  # Ensure the period column is valid
+  if (!is.numeric(data[[period_col]]) & !is.character(data[[period_col]])) {
+    stop("The period column must be numeric or character in YYYYMM format.")
+  }
+  
+  # Ensure the period column is in the correct format
+  if (!all(nchar(as.character(data[[period_col]])) == 6)) {
+    stop("Ensure the period column is in the YYYYMM format (e.g., 201501).")
+  }
+  
+  # Extract year and month from the period column
+  data <- data %>%
     mutate(
       Year = substr(as.character(!!sym(period_col)), 1, 4),
       Month = substr(as.character(!!sym(period_col)), 5, 6),
@@ -8,3 +25,31 @@
         labels = month.name
       )
     )
+  
+  # Fit a linear model and calculate residuals
+  model <- lm(reformulate(independent_vars, dependent_var), data = data)
+  data$Residuals <- residuals(model)
+  
+  # Combine variables of interest for plotting
+  plot_vars <- c(dependent_var, "Residuals", independent_vars)
+  
+  # Create a list to store plots
+  plot_list <- list()
+  
+  # Generate boxplots for each variable
+  for (var in plot_vars) {
+    p <- ggplot(data, aes(x = MonthName, y = .data[[var]])) +
+      geom_boxplot(fill = "skyblue", color = "darkblue", alpha = 0.7) +
+      labs(title = paste("Boxplot of", var), x = "Month", y = var) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    
+    plot_list[[var]] <- p
+  }
+  
+  # Combine all plots into a grid layout with 2 columns
+  combined_plot <- wrap_plots(plot_list, ncol = 2)
+  
+  # Print the combined plot
+  print(combined_plot)
+}
