@@ -1,13 +1,9 @@
-Download Button
-=========================
-
-### Download Your Data
-
 ```{r}
 # Center the button and add a catchy title
 fluidRow(
   column(12, align = "center",
          h3("Download Your Processed Data Below!"),
+         p("Please ensure that you have completed your analysis and selected the appropriate options before downloading. The downloaded file will contain the processed data based on your inputs."),
          actionButton("download_btn", "Download", class = "btn-primary"))
 )
 ```
