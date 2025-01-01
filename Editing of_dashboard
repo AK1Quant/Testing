@@ -1,94 +1,13 @@
----
-title: "Model Stats Dashboard"
-output: 
-  flexdashboard::flex_dashboard:
-    orientation: columns
-    vertical_layout: fill
-runtime: shiny
----
-
-```{r setup, include=FALSE}
-library(flexdashboard)
-library(shiny)
-library(readxl)
-library(DT)
-```
-
-Sidebar {.sidebar}
+Download Button
 =========================
 
-```{r}
-# Sidebar content
-fileInput("file", "Upload Excel File", 
-          accept = c(".xlsx"), 
-          placeholder = "Choose an Excel file")
-
-tags$hr()
-
-# Include intercept checkbox
-checkboxInput("include_intercept", "Include Intercept", value = TRUE)
-
-# Short or long radio buttons
-radioButtons("data_type", "Data Type:",
-             choices = c("Short" = "short", "Long" = "long"),
-             selected = "short")
-
-# Monthly or quarterly selection
-selectInput("frequency", "Frequency:",
-            choices = c("Monthly", "Quarterly"),
-            selected = "Monthly")
-
-tags$hr()
-
-# Dynamic UI for sheet selection
-output$sheets <- renderUI({
-  req(input$file)
-  file_path <- input$file$datapath
-  validate(
-    need(file_path != "", "No file selected"),
-    need(file.exists(file_path), "Uploaded file is not accessible")
-  )
-  sheets <- excel_sheets(file_path)
-  checkboxGroupInput("sheets", "Select Sheets:", choices = sheets)
-})
-uiOutput("sheets")
-```
-
-Column {.column-data}
-=========================
-
-### Model Analysis
+### Download Your Data
 
 ```{r}
-# Placeholder for the selected sheet's data
-output$table <- renderDataTable({
-  req(input$file, input$sheets)
-  data <- read_excel(input$file$datapath, sheet = input$sheets[1])
-
-  # Add custom coloring for "Pass" and "Fail" values using style callback
-  datatable(data, options = list(
-    createdRow = JS(
-      'function(row, data, dataIndex) {
-        for (var i = 0; i < data.length; i++) {
-          if (data[i] === "Pass") {
-            $("td", row).eq(i).css("background-color", "#d4edda");
-          } else if (data[i] === "Fail") {
-            $("td", row).eq(i).css("background-color", "#f8d7da");
-          }
-        }
-      }'
-    )
-  ))
-})
-DT::dataTableOutput("table")
-```
-
-Stats test
-=========================
-
-### Test Statistics
-
-```{r}
-# Add specific content for the Stats test page
-plot(cars)
+# Center the button and add a catchy title
+fluidRow(
+  column(12, align = "center",
+         h3("Download Your Processed Data Below!"),
+         actionButton("download_btn", "Download", class = "btn-primary"))
+)
 ```
