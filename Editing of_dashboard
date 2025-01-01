@@ -1,0 +1,112 @@
+---
+title: "Model Stats Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(shiny)
+library(readxl)
+library(DT)
+```
+
+Sidebar {.sidebar}
+-----------------------------------------------------------------------
+```{r}
+# Sidebar content
+fileInput("file", "Upload Excel File", 
+          accept = c(".xlsx"), 
+          placeholder = "Choose an Excel file")
+
+tags$hr()
+output$sheets <- renderUI({
+  req(input$file)
+  sheets <- excel_sheets(input$file$datapath)
+  checkboxGroupInput("sheets", "Select Sheets:", choices = sheets)
+})
+uiOutput("sheets")
+```
+
+Column {.column-data}
+-----------------------------------------------------------------------
+### Model Analysis
+```{r}
+# Placeholder for the selected sheet's data
+output$table <- renderDataTable({
+  req(input$file, input$sheets)
+  data <- read_excel(input$file$datapath, sheet = input$sheets[1])
+  datatable(data)
+})
+DT::dataTableOutput("table")
+```
+
+####################################################################################################################################################################################################################################
+
+
+---
+title: "Model Stats Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(shiny)
+library(readxl)
+library(DT)
+```
+
+Sidebar {.sidebar}
+-----------------------------------------------------------------------
+
+```{r}
+# Sidebar content
+fileInput("file", "Upload Excel File", 
+          accept = c(".xlsx"), 
+          placeholder = "Choose an Excel file")
+
+tags$hr()
+output$sheets <- renderUI({
+  req(input$file)
+  sheets <- excel_sheets(input$file$datapath)
+  checkboxGroupInput("sheets", "Select Sheets:", choices = sheets)
+})
+uiOutput("sheets")
+```
+
+Column {.column-data}
+-----------------------------------------------------------------------
+
+### Model Analysis
+
+```{r}
+# Placeholder for the selected sheet's data
+output$table <- renderDataTable({
+  req(input$file, input$sheets)
+  data <- read_excel(input$file$datapath, sheet = input$sheets[1])
+
+  # Add custom coloring for "Pass" and "Fail" values using style callback
+  datatable(data, options = list(
+    createdRow = JS(
+      'function(row, data, dataIndex) {
+        for (var i = 0; i < data.length; i++) {
+          if (data[i] === "Pass") {
+            $("td", row).eq(i).css("background-color", "#d4edda");
+          } else if (data[i] === "Fail") {
+            $("td", row).eq(i).css("background-color", "#f8d7da");
+          }
+        }
+      }'
+    )
+  ))
+})
+DT::dataTableOutput("table")
+```
+
