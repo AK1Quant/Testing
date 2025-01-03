@@ -1,53 +1,38 @@
----
-title: "Custom Download Button Example"
-output: flexdashboard::flex_dashboard
-runtime: shiny
----
+fluidRow(
+  column(12, align = "center",
+         h3("Download Your Processed Data Below!"),
+         p("Please ensure that you have completed your analysis and selected the appropriate options before downloading. The downloaded file will contain the processed data and any generated plots."),
+         downloadButton("download_btn", "Download", class = "btn-primary"))
+)
 
-```{r setup, include=FALSE}
-library(shiny)
-library(flexdashboard)
-library(openxlsx)
-library(shinyjs)
-```
+# Server-side logic for download
+output$download_btn <- downloadHandler(
+  filename = function() {
+    paste("processed_data_with_plots.xlsx")
+  },
+  content = function(file) {
+    req(input$dep_file, input$sheets)
 
-### Custom Download Button
-Add a custom button to trigger the download.
+    # Read selected sheet data
+    dep_file <- read_excel(input$dep_file$datapath, sheet = input$sheets[1])
 
-```{r}
-ui <- function() {
-  useShinyjs()  # Enable shinyjs
-  tagList(
-    actionButton("generate", "Generate Report", class = "btn-primary"),
-    tags$a(id = "download_link", href = "#", download = "report.xlsx", 
-           style = "display: none;", "Download Report")
-  )
-}
-```
+    # Perform statistical tests and save within the function
+    stats_tests <- function(data, file_path, intercept = TRUE, freq = "monthly", ADF_criteria = "short") {
+      # Example processing: Add a new column
+      data$Processed <- ifelse(data[[1]] > 0, "Pass", "Fail")
 
-### Server Logic
-Render the Excel file dynamically and update the download link.
+      # Create a workbook
+      wb <- createWorkbook()
 
-```{r}
-server <- function(input, output, session) {
-  observeEvent(input$generate, {
-    # Generate an Excel file dynamically
-    temp_file <- tempfile(fileext = ".xlsx")
-    wb <- createWorkbook()
-    addWorksheet(wb, "Sheet1")
-    writeData(wb, "Sheet1", data.frame(A = 1:10, B = letters[1:10]))
-    saveWorkbook(wb, temp_file, overwrite = TRUE)
-    
-    # Update the download link
-    shinyjs::runjs(sprintf("$('#download_link').attr('href', '%s').show();", 
-                           temp_file))
-  })
-}
-```
+      # Add processed data to a worksheet
+      addWorksheet(wb, "Processed Data")
+      writeData(wb, "Processed Data", data)
 
-### Run the App
-Combine the UI and server components to run the app.
+      # Save the workbook
+      saveWorkbook(wb, file_path, overwrite = TRUE)
+    }
 
-```{r}
-shinyApp(ui = ui, server = server)
-```
+    # Call the function to process data and save workbook
+    stats_tests(dep_file, file, intercept = input$include_intercept, freq = input$frequency, ADF_criteria = input$data_type)
+  }
+)
