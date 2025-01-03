@@ -1,1 +1,44 @@
-contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+output$download_btn <- downloadHandler(
+  filename = function() {
+    "processed_data_with_plots.xlsx"
+  },
+  content = function(file) {
+    req(input$file, input$sheets)
+    
+    # Show a notification while processing
+    showNotification("Generating your file, please wait...", type = "message", duration = NULL, id = "file_processing")
+    
+    tryCatch({
+      # Read the selected sheet
+      data <- read_excel(input$file$datapath, sheet = input$sheets[1])
+      
+      # Format numeric columns to 5 decimal places
+      numeric_cols <- sapply(data, is.numeric)
+      data[numeric_cols] <- lapply(data[numeric_cols], function(col) round(col, 5))
+      
+      # Create a new workbook
+      wb <- createWorkbook()
+      addWorksheet(wb, "Data")
+      writeData(wb, "Data", data)
+      
+      # Add a plot to the workbook
+      plot_file <- tempfile(fileext = ".png")
+      png(plot_file, width = 800, height = 600)
+      print(ggplot(mtcars, aes(x = wt, y = mpg)) +
+              geom_point() +
+              labs(title = "Scatter Plot of MPG vs Weight"))
+      dev.off()
+      
+      addWorksheet(wb, "Plot")
+      insertImage(wb, "Plot", plot_file, width = 6, height = 4, startRow = 1, startCol = 1)
+      
+      # Save the workbook
+      saveWorkbook(wb, file, overwrite = TRUE)
+    }, error = function(e) {
+      showNotification("Error occurred while generating the file.", type = "error")
+    }, finally = {
+      removeNotification("file_processing")
+    })
+  },
+  contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
