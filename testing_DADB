@@ -1,0 +1,53 @@
+---
+title: "Custom Download Button Example"
+output: flexdashboard::flex_dashboard
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(shiny)
+library(flexdashboard)
+library(openxlsx)
+library(shinyjs)
+```
+
+### Custom Download Button
+Add a custom button to trigger the download.
+
+```{r}
+ui <- function() {
+  useShinyjs()  # Enable shinyjs
+  tagList(
+    actionButton("generate", "Generate Report", class = "btn-primary"),
+    tags$a(id = "download_link", href = "#", download = "report.xlsx", 
+           style = "display: none;", "Download Report")
+  )
+}
+```
+
+### Server Logic
+Render the Excel file dynamically and update the download link.
+
+```{r}
+server <- function(input, output, session) {
+  observeEvent(input$generate, {
+    # Generate an Excel file dynamically
+    temp_file <- tempfile(fileext = ".xlsx")
+    wb <- createWorkbook()
+    addWorksheet(wb, "Sheet1")
+    writeData(wb, "Sheet1", data.frame(A = 1:10, B = letters[1:10]))
+    saveWorkbook(wb, temp_file, overwrite = TRUE)
+    
+    # Update the download link
+    shinyjs::runjs(sprintf("$('#download_link').attr('href', '%s').show();", 
+                           temp_file))
+  })
+}
+```
+
+### Run the App
+Combine the UI and server components to run the app.
+
+```{r}
+shinyApp(ui = ui, server = server)
+```
