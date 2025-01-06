@@ -1,9 +1,34 @@
+---
+title: "OPTIX Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    runtime: shiny
+    orientation: rows
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(shiny)
+```
+
+```{r ui, echo=FALSE}
+# Add a modal dialog for the welcome message
+observe({
+  showModal(
+    modalDialog(
+      title = "Welcome to OPTIX",
+      "Welcome to the OPTIX dashboard! Click Enter to proceed.",
+      easyClose = FALSE, # Prevent closing without clicking the button
+      footer = modalButton("Enter")
+    )
+  )
+})
+```
+
+### Flexdashboard Content
+Add your dashboard content below:
+
 ```{r}
-# Center the button and add a catchy title
-fluidRow(
-  column(12, align = "center",
-         h3("Download Your Processed Data Below!"),
-         p("Please ensure that you have completed your analysis and selected the appropriate options before downloading. The downloaded file will contain the processed data based on your inputs."),
-         actionButton("download_btn", "Download", class = "btn-primary"))
-)
+# Example content
+valueBox(value = "42", caption = "Sample Metric")
 ```
