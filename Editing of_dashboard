@@ -1,55 +1,67 @@
 ---
-title: "OPTIX Dashboard"
+title: "OPTIX"
 output: 
   flexdashboard::flex_dashboard:
-    runtime: shiny
     orientation: rows
     vertical_layout: fill
+runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
-library(shiny)
 library(flexdashboard)
-
-# Reactive value to track if the user has clicked "Enter"
-user_entered <- reactiveVal(FALSE)
+library(shiny)
 ```
 
-```{r ui, echo=FALSE}
-# Show the modal dialog when the app starts
-observe({
-  if (!user_entered()) {
-    showModal(
-      modalDialog(
-        title = "Welcome to OPTIX",
-        "Welcome to the OPTIX dashboard! Click Enter to proceed.",
-        easyClose = FALSE,
-        footer = actionButton("enter_button", "Enter")
-      )
-    )
-  }
-})
+Row
+-------------------------------------
 
-# Close the modal and allow access when the button is clicked
-observeEvent(input$enter_button, {
-  user_entered(TRUE)
-  removeModal()
-})
+### Dashboard Body
+
+```{r}
+# Source the large content from an external file
+for (i in 1:1000) {
+  print(paste("This is line", i))
+}
 ```
 
-### Main Dashboard Content
+```{r popup, include=FALSE}
+tags$head(
+  tags$script(HTML("
+    document.addEventListener('DOMContentLoaded', function() {
+      var popup = document.createElement('div');
+      popup.id = 'welcome-popup';
+      popup.style.position = 'fixed';
+      popup.style.top = '50%';
+      popup.style.left = '50%';
+      popup.style.transform = 'translate(-50%, -50%)';
+      popup.style.backgroundColor = '#ffffff';
+      popup.style.padding = '20px';
+      popup.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.5)';
+      popup.style.zIndex = '10000';
+      popup.style.textAlign = 'center';
+      popup.style.fontFamily = 'Arial, sans-serif';
 
-```{r, echo=FALSE}
-# Show content only after the user clicks "Enter"
-output$main_content <- renderUI({
-  req(user_entered()) # Wait until user clicks Enter
+      var text = document.createElement('p');
+      text.innerText = 'Welcome to OPTIX';
+      text.style.fontSize = '18px';
+      text.style.marginBottom = '20px';
+      popup.appendChild(text);
 
-  tagList(
-    # Example content
-    valueBox(value = "42", caption = "Sample Metric"),
-    valueBox(value = "100%", caption = "Completion Rate")
-  )
-})
+      var button = document.createElement('button');
+      button.innerText = 'Enter';
+      button.style.padding = '10px 20px';
+      button.style.backgroundColor = '#007bff';
+      button.style.color = '#ffffff';
+      button.style.border = 'none';
+      button.style.borderRadius = '5px';
+      button.style.cursor = 'pointer';
+      button.onclick = function() {
+        document.body.removeChild(popup);
+      };
+      popup.appendChild(button);
 
-uiOutput("main_content")
+      document.body.appendChild(popup);
+    });
+  "))
+)
 ```
