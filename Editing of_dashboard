@@ -9,26 +9,47 @@ output:
 
 ```{r setup, include=FALSE}
 library(shiny)
+library(flexdashboard)
+
+# Reactive value to track if the user has clicked "Enter"
+user_entered <- reactiveVal(FALSE)
 ```
 
 ```{r ui, echo=FALSE}
-# Add a modal dialog for the welcome message
+# Show the modal dialog when the app starts
 observe({
-  showModal(
-    modalDialog(
-      title = "Welcome to OPTIX",
-      "Welcome to the OPTIX dashboard! Click Enter to proceed.",
-      easyClose = FALSE, # Prevent closing without clicking the button
-      footer = modalButton("Enter")
+  if (!user_entered()) {
+    showModal(
+      modalDialog(
+        title = "Welcome to OPTIX",
+        "Welcome to the OPTIX dashboard! Click Enter to proceed.",
+        easyClose = FALSE,
+        footer = actionButton("enter_button", "Enter")
+      )
     )
-  )
+  }
+})
+
+# Close the modal and allow access when the button is clicked
+observeEvent(input$enter_button, {
+  user_entered(TRUE)
+  removeModal()
 })
 ```
 
-### Flexdashboard Content
-Add your dashboard content below:
+### Main Dashboard Content
 
-```{r}
-# Example content
-valueBox(value = "42", caption = "Sample Metric")
+```{r, echo=FALSE}
+# Show content only after the user clicks "Enter"
+output$main_content <- renderUI({
+  req(user_entered()) # Wait until user clicks Enter
+
+  tagList(
+    # Example content
+    valueBox(value = "42", caption = "Sample Metric"),
+    valueBox(value = "100%", caption = "Completion Rate")
+  )
+})
+
+uiOutput("main_content")
 ```
