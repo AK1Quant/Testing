@@ -1,67 +1,22 @@
----
-title: "OPTIX"
-output: 
-  flexdashboard::flex_dashboard:
-    orientation: rows
-    vertical_layout: fill
-runtime: shiny
----
+Bootstrap 4 Modal (bs4Dash)
 
-```{r setup, include=FALSE}
-library(flexdashboard)
-library(shiny)
-```
-
-Row
--------------------------------------
-
-### Dashboard Body
-
-```{r}
-# Source the large content from an external file
-for (i in 1:1000) {
-  print(paste("This is line", i))
-}
-```
-
-```{r popup, include=FALSE}
-tags$head(
-  tags$script(HTML("
-    document.addEventListener('DOMContentLoaded', function() {
-      var popup = document.createElement('div');
-      popup.id = 'welcome-popup';
-      popup.style.position = 'fixed';
-      popup.style.top = '50%';
-      popup.style.left = '50%';
-      popup.style.transform = 'translate(-50%, -50%)';
-      popup.style.backgroundColor = '#ffffff';
-      popup.style.padding = '20px';
-      popup.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.5)';
-      popup.style.zIndex = '10000';
-      popup.style.textAlign = 'center';
-      popup.style.fontFamily = 'Arial, sans-serif';
-
-      var text = document.createElement('p');
-      text.innerText = 'Welcome to OPTIX';
-      text.style.fontSize = '18px';
-      text.style.marginBottom = '20px';
-      popup.appendChild(text);
-
-      var button = document.createElement('button');
-      button.innerText = 'Enter';
-      button.style.padding = '10px 20px';
-      button.style.backgroundColor = '#007bff';
-      button.style.color = '#ffffff';
-      button.style.border = 'none';
-      button.style.borderRadius = '5px';
-      button.style.cursor = 'pointer';
-      button.onclick = function() {
-        document.body.removeChild(popup);
-      };
-      popup.appendChild(button);
-
-      document.body.appendChild(popup);
-    });
-  "))
+# bs4Dash Modal
+bs4Dash::bs4Modal(
+  id = "popUpModal",
+  title = "This is a Bootstrap Modal",
+  size = "lg",
+  footer = tagList(
+    modalButton("Close")
+  ),
+  body = "Here is the content of the pop-up."
 )
-```
+
+Button to Trigger Modal
+
+actionButton("showModal", "Click to Show Pop-up")
+
+Show Modal on Button Click
+
+observeEvent(input$showModal, {
+  bs4Dash::showModal("popUpModal")
+})
