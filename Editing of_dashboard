@@ -1,3 +1,14 @@
+---
+title: "Dashboard with Popup"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(shiny)
+library(flexdashboard)
 library(shinyjs)
 ```
 
@@ -17,14 +28,27 @@ popupModal <- function() {
 }
 ```
 
+Column {data-width=350}
+-------------------------------------
 ```{r}
-# User Interface
-ui <- shinyUI(fluidPage(
-  useShinyjs(),  # Initialize shinyjs
-  hidden(div(id = "dashboard_content", 
-    flexdashboard::flex_dashboardPage(
-      # Add your flexdashboard content here
-      column(width = 6, "Main content goes here")
-    )
-  ))
-))
+# Content for the first column
+# Add plots, inputs, or text here
+```
+
+Column {data-width=650}
+-------------------------------------
+```{r}
+# Content for the second column
+# Add visualizations, tables, or other content here
+```
+
+```{r}
+# Server logic for the popup
+shinyServer(function(input, output, session) {
+  showModal(popupModal())
+
+  observeEvent(input$enter_btn, {
+    removeModal()
+  })
+})
+```
