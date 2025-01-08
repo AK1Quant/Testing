@@ -1,22 +1,30 @@
-Bootstrap 4 Modal (bs4Dash)
+library(shinyjs)
+```
 
-# bs4Dash Modal
-bs4Dash::bs4Modal(
-  id = "popUpModal",
-  title = "This is a Bootstrap Modal",
-  size = "lg",
-  footer = tagList(
-    modalButton("Close")
-  ),
-  body = "Here is the content of the pop-up."
-)
+```{r popup-ui, include=FALSE}
+# Define a modal popup
+popupModal <- function() {
+  modalDialog(
+    title = "Welcome to the Dashboard",
+    p("Click the button below to access the dashboard."),
+    footer = tagList(
+      modalButton("Close"),
+      actionButton("enter_btn", "Enter", class = "btn-primary")
+    ),
+    easyClose = FALSE,
+    fade = TRUE
+  )
+}
+```
 
-Button to Trigger Modal
-
-actionButton("showModal", "Click to Show Pop-up")
-
-Show Modal on Button Click
-
-observeEvent(input$showModal, {
-  bs4Dash::showModal("popUpModal")
-})
+```{r}
+# User Interface
+ui <- shinyUI(fluidPage(
+  useShinyjs(),  # Initialize shinyjs
+  hidden(div(id = "dashboard_content", 
+    flexdashboard::flex_dashboardPage(
+      # Add your flexdashboard content here
+      column(width = 6, "Main content goes here")
+    )
+  ))
+))
