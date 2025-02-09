@@ -1,0 +1,61 @@
+---
+title: "Stock Ticker Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    social: menu
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(shiny)
+library(flexdashboard)
+library(DT)
+library(dplyr)
+
+# Sample Data
+ticker_data <- data.frame(
+  Ticker = c("AAPL", "GOOGL", "AMZN", "TSLA", "MSFT"),
+  Company = c("Apple", "Google", "Amazon", "Tesla", "Microsoft"),
+  Sector = c("Technology", "Technology", "E-commerce", "Automotive", "Technology"),
+  Price = c(175, 2850, 3400, 900, 299),
+  stringsAsFactors = FALSE
+)
+
+# Reactive values to store selected rows
+selected_rows <- reactiveValues(data = NULL)
+```
+
+## Selection
+
+```{r}
+fluidRow(
+  column(12, actionButton("select_all", "Select All")),
+  DTOutput("table")
+)
+
+observeEvent(input$select_all, {
+  selected_rows$data <- ticker_data  # Select all rows
+})
+
+observeEvent(input$table_rows_selected, {
+  selected_rows$data <- ticker_data[input$table_rows_selected, ]
+})
+```
+
+## Preview
+
+```{r}
+renderDT({
+  req(selected_rows$data)  # Ensure there's data selected
+  datatable(selected_rows$data, options = list(pageLength = 5))
+})
+```
+
+```{r server, include=FALSE}
+server <- function(input, output, session) {
+  output$table <- renderDT({
+    datatable(ticker_data, selection = "multiple", filter = "top", options = list(pageLength = 5))
+  })
+}
+```
