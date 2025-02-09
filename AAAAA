@@ -1,3 +1,1 @@
-Create a Rflexdashboard code for the below case:
-
-1st page where i want to have a data frame contians tickers, In this page itself I want to the row with the checkboxes and columns with the filter option. Then the selected data should be preview in the another page
+N this Can i do multiple selection like filtering the data then selecting particular one row then again fitering some from column and selcting all. finally all selected and sorted tickers
